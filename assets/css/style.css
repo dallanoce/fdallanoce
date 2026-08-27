@@ -12,7 +12,7 @@
    1. Token          — colori, tipografia, spaziature
    2. Reset          — normalizzazione di base
    3. Layout         — contenitore e struttura pagina
-   4. Testata        — masthead e navigazione
+   4. Testata        — masthead, navigazione e selettore di lingua
    5. Tipografia     — titoli, prose, eyebrow
    6. Indice         — righe titolo/destinazione (elemento firma del sito)
    7. Blocchi        — card, note, tag
@@ -202,6 +202,81 @@ a:hover { color: var(--accent-deep); }
 .nav__link.is-active {
   color: var(--ink);
   border-bottom-color: var(--accent);
+}
+
+/* Gruppo di destra della testata: le sezioni e, dopo, il selettore di lingua.
+   Esiste per tenerli uniti quando la testata va a capo sugli schermi
+   stretti: senza, il selettore finirebbe da solo su una riga tutta sua. */
+.masthead__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-3) var(--s-5);
+}
+
+/* --- Selettore di lingua -------------------------------------------------
+
+   È un <select> nativo. Un menu costruito a mano avrebbe richiesto gestione
+   del focus, tasti freccia, chiusura al clic fuori e annunci per i lettori
+   di schermo: il controllo di sistema fa tutto questo da solo, e sul
+   telefono usa il selettore nativo del sistema operativo.
+
+   L'aspetto predefinito si toglie con appearance:none. La freccia la
+   disegna il contenitore con ::after invece di un'immagine di sfondo, così
+   eredita il colore del testo e resta giusta anche in tema scuro — una
+   freccia dentro un data URI sarebbe un colore fisso, cioè la cosa che i
+   token servono a evitare. */
+
+.langswitch {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--ink-2);
+  transition: color var(--speed) ease;
+}
+.langswitch:hover { color: var(--ink); }
+
+.langswitch::after {
+  content: "▾";
+  position: absolute;
+  right: var(--s-2);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--t-xs);
+  line-height: 1;
+  pointer-events: none;   /* il clic deve arrivare al <select> sotto */
+}
+
+.langswitch__select {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-1) var(--s-6) var(--s-1) var(--s-3);
+  cursor: pointer;
+  transition: border-color var(--speed) ease;
+}
+.langswitch__select:hover { border-color: var(--ink-3); }
+
+/* Il menu aperto è disegnato dal sistema operativo e non eredita lo sfondo
+   trasparente del controllo: senza questa riga, in tema scuro si vedrebbe
+   testo chiaro su fondo chiaro. */
+.langswitch__select option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* Sugli schermi stretti la testata è la riga più affollata del sito:
+   si stringono le distanze prima di lasciarla andare a capo. */
+@media (max-width: 34rem) {
+  .nav { gap: var(--s-4); }
+  .masthead__end { gap: var(--s-2) var(--s-4); }
 }
 
 

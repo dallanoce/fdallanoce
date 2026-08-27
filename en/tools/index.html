@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tools — Nome Cognome</title>
+  <meta name="description" content="Small utilities that run entirely in the browser: nothing you type is ever sent anywhere.">
+
+  <link rel="canonical" href="/en/tools/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/">
+  <link rel="alternate" hreflang="en" href="/en/tools/">
+  <link rel="alternate" hreflang="x-default" href="/it/strumenti/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title title--page">Tools</h1>
+  <p class="lede">
+    Small tools that come in handy in my day-to-day work.
+    I keep them here in case they are useful to someone else.
+  </p>
+
+  <div class="note">
+    <p>
+      Every tool runs entirely in your browser: the data you type stays on
+      your computer and is never sent to any server.
+    </p>
+  </div>
+
+
+  <p class="eyebrow">Available</p>
+
+  <!--
+    COME AGGIUNGERE UN TOOL
+    Copia un blocco <a class="index__row"> e cambia tre cose:
+    href, index__label (il nome) e index__note (una riga di descrizione).
+    A destra, in index__meta, va il percorso interno: è l'elemento che
+    distingue i link che restano sul sito da quelli che portano fuori.
+
+    Il percorso è quello di QUESTO albero di lingua. La pagina gemella in
+    /it/strumenti/ mostra il proprio, che è diverso perché anche gli
+    indirizzi sono tradotti.
+  -->
+  <nav class="index" aria-label="Available tools">
+    <a class="index__row" href="/en/tools/tax-calculator/">
+      <span class="index__main">
+        <span class="index__label">Tax calculator</span>
+        <span class="index__note">Estimate tax and contributions under the Italian flat-rate scheme.</span>
+      </span>
+      <span class="index__meta">/en/tools/tax-calculator/</span>
+    </a>
+  </nav>
+
+</main>
+
+<site-footer></site-footer>
+
+</body>
+</html>

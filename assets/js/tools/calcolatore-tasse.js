@@ -9,6 +9,17 @@
    Tenere i parametri separati dal calcolo significa che l'aggiornamento
    annuale delle aliquote è una modifica di due righe, non una caccia
    al numero sparso nel codice.
+
+   DUE LINGUE, UN FILE SOLO
+   Questo file serve sia /it/strumenti/calcolatore-tasse/ sia
+   /en/tools/tax-calculator/. Le due pagine hanno gli stessi id nei campi
+   proprio per questo: il calcolo esiste una volta sola, e un aggiornamento
+   delle aliquote non può dimenticarsi di una delle due lingue.
+
+   Etichette e messaggi che nascono qui — il testo di un <option>, un
+   errore, la riga di stato — passano da I18N.t({ it, en }): dentro un
+   <option> non si può mettere altro markup, quindi la traduzione non può
+   stare nell'HTML della pagina come per il resto del testo.
    ========================================================================== */
 
 
@@ -19,25 +30,72 @@
    I valori qui sotto sono un punto di partenza plausibile, non una fonte
    ufficiale. Controllali sul sito dell'Agenzia delle Entrate e dell'INPS
    prima di pubblicare il tool.
+
+   I numeri non cambiano con la lingua: si traduce solo l'etichetta.
    -------------------------------------------------------------------------- */
 
 const COEFFICIENTI = [
-  { id: "professioni",  label: "Professioni e servizi (78%)",        valore: 0.78 },
-  { id: "commercio",    label: "Commercio all'ingrosso (40%)",       valore: 0.40 },
-  { id: "alimentari",   label: "Commercio alimentari e bevande (40%)", valore: 0.40 },
-  { id: "costruzioni",  label: "Costruzioni e immobiliare (86%)",    valore: 0.86 },
-  { id: "intermediari", label: "Intermediari del commercio (62%)",   valore: 0.62 },
+  {
+    id: "professioni",
+    label: { it: "Professioni e servizi (78%)", en: "Professions and services (78%)" },
+    valore: 0.78,
+  },
+  {
+    id: "commercio",
+    label: { it: "Commercio all'ingrosso (40%)", en: "Wholesale trade (40%)" },
+    valore: 0.40,
+  },
+  {
+    id: "alimentari",
+    label: { it: "Commercio alimentari e bevande (40%)", en: "Food and drink retail (40%)" },
+    valore: 0.40,
+  },
+  {
+    id: "costruzioni",
+    label: { it: "Costruzioni e immobiliare (86%)", en: "Construction and real estate (86%)" },
+    valore: 0.86,
+  },
+  {
+    id: "intermediari",
+    label: { it: "Intermediari del commercio (62%)", en: "Trade intermediaries (62%)" },
+    valore: 0.62,
+  },
 ];
 
 const ALIQUOTE = [
-  { id: "ridotta",   label: "5% — primi 5 anni di attività", valore: 0.05 },
-  { id: "ordinaria", label: "15% — ordinaria",               valore: 0.15 },
+  {
+    id: "ridotta",
+    label: { it: "5% — primi 5 anni di attività", en: "5% — first 5 years of trading" },
+    valore: 0.05,
+  },
+  {
+    id: "ordinaria",
+    label: { it: "15% — ordinaria", en: "15% — standard" },
+    valore: 0.15,
+  },
 ];
 
+// "Gestione separata" e "artigiani e commercianti" sono nomi propri di
+// gestioni INPS: in inglese si tengono, spiegandoli fra parentesi.
 const CASSE = [
-  { id: "separata",   label: "Gestione separata INPS", aliquota: 0.2607, fisso: 0 },
-  { id: "artigiani",  label: "Artigiani e commercianti", aliquota: 0.24, fisso: 4600 },
-  { id: "nessuna",    label: "Nessuna / cassa privata",  aliquota: 0,    fisso: 0 },
+  {
+    id: "separata",
+    label: { it: "Gestione separata INPS", en: "INPS Gestione Separata (freelancers)" },
+    aliquota: 0.2607,
+    fisso: 0,
+  },
+  {
+    id: "artigiani",
+    label: { it: "Artigiani e commercianti", en: "Artisans and traders (INPS)" },
+    aliquota: 0.24,
+    fisso: 4600,
+  },
+  {
+    id: "nessuna",
+    label: { it: "Nessuna / cassa privata", en: "None / private fund" },
+    aliquota: 0,
+    fisso: 0,
+  },
 ];
 
 
@@ -67,11 +125,14 @@ function calcola({ ricavi, coefficiente, aliquota, cassa }) {
    3. INTERFACCIA
    -------------------------------------------------------------------------- */
 
-const euro = new Intl.NumberFormat("it-IT", {
+/* Il locale segue la lingua della pagina: non scriverlo mai a mano.
+   Lo stesso importo diventa "38.391 €" in italiano e "€38,391" in inglese —
+   due stringhe diverse, lo stesso numero. */
+const euro = new Intl.NumberFormat(I18N.locale, {
   style: "currency", currency: "EUR", maximumFractionDigits: 0,
 });
 
-const percento = new Intl.NumberFormat("it-IT", {
+const percento = new Intl.NumberFormat(I18N.locale, {
   style: "percent", maximumFractionDigits: 1,
 });
 
@@ -80,7 +141,7 @@ const $ = (id) => document.getElementById(id);
 // Riempie una <select> a partire da un elenco di opzioni.
 function popola(select, opzioni) {
   select.innerHTML = opzioni
-    .map((o) => `<option value="${o.id}">${o.label}</option>`)
+    .map((o) => `<option value="${o.id}">${I18N.t(o.label)}</option>`)
     .join("");
 }
 
@@ -91,7 +152,10 @@ function esegui() {
 
   if (!Number.isFinite(ricavi) || ricavi <= 0) {
     risultato.hidden = true;
-    stato.textContent = "Inserisci un importo di ricavi maggiore di zero.";
+    stato.textContent = I18N.t({
+      it: "Inserisci un importo di ricavi maggiore di zero.",
+      en: "Enter a revenue figure greater than zero.",
+    });
     return;
   }
 
@@ -109,7 +173,10 @@ function esegui() {
   $("out-netto").textContent      = euro.format(esito.netto);
 
   risultato.hidden = false;
-  stato.textContent = "Stima aggiornata.";
+  stato.textContent = I18N.t({
+    it: "Stima aggiornata.",
+    en: "Estimate updated.",
+  });
 }
 
 // Avvio

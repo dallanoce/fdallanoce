@@ -6,16 +6,29 @@
   <title>Calcolatore tasse — Nome Cognome</title>
   <meta name="description" content="Stima imposte e contributi in regime forfettario. Calcolo eseguito nel browser.">
 
+  <link rel="canonical" href="/it/strumenti/calcolatore-tasse/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/calcolatore-tasse/">
+  <link rel="alternate" hreflang="en" href="/en/tools/tax-calculator/">
+  <link rel="alternate" hreflang="x-default" href="/it/strumenti/calcolatore-tasse/">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
   <script src="/assets/js/layout.js"></script>
 </head>
 <body>
 
 <site-header></site-header>
 
+<!--
+  Gli id dei campi (ricavi, coefficiente, calcola, out-netto…) sono in
+  italiano anche nella pagina gemella inglese, ed è voluto: un solo file
+  JavaScript serve tutti e due gli alberi. Gli id non li legge nessun
+  visitatore, mentre due copie dello stesso calcolo fiscale prenderebbero
+  strade diverse al primo aggiornamento delle aliquote.
+-->
 <main id="contenuto" class="wrap page">
 
   <h1 class="title title--page">Calcolatore tasse</h1>

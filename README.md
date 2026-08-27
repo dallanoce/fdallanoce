@@ -4,24 +4,36 @@ A static site with no build step: hand-written HTML, CSS and vanilla JavaScript,
 served exactly as it sits in the repo. No dependencies, no framework, no lock-in
 to any host.
 
-Site copy is in Italian. Documentation is in English.
+The site is bilingual, Italian and English, built as two parallel trees under
+`/it/` and `/en/`. Italian is the source language. Code comments are in Italian;
+documentation is in English.
 
 ## Structure
 
 ```
 .
-├── index.html                     home
+├── index.html                     router: sends visitors to /it/ or /en/
 ├── 404.html                       error page
-├── _template.html                 copy this for every new page
-├── cv/                            CV
-├── articoli/                      links out to published articles
-├── tools/                         tool index
-│   └── calcolatore-tasse/         one tool = one folder
-├── stile/                         style guide (noindex, not in the nav)
-└── assets/
+├── _template.it.html              copy this pair for every new page
+├── _template.en.html
+├── it/                            Italian tree
+│   ├── index.html                 home
+│   ├── cv/
+│   ├── articoli/                  links out to published articles
+│   └── strumenti/                 tool index
+│       └── calcolatore-tasse/     one tool = one folder
+├── en/                            English tree, same shape
+│   ├── index.html
+│   ├── cv/
+│   ├── articles/
+│   └── tools/
+│       └── tax-calculator/
+├── stile/                         style guide (noindex, Italian only, not in the nav)
+└── assets/                        shared by both trees, never duplicated
     ├── css/style.css              the entire stylesheet
     └── js/
-        ├── layout.js              shared header and footer
+        ├── i18n.js                page language and JS strings
+        ├── layout.js              shared header, footer and language switcher
         └── tools/                 per-tool logic
 ```
 
@@ -34,43 +46,67 @@ work. Serve the folder instead:
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000`.
+Then open `http://localhost:8000`. It will redirect to `/it/` or `/en/` depending
+on your browser's language.
 
-## The three rules that keep the site consistent
+Note that `http.server` does not serve `404.html` for unknown paths — it shows its
+own error page. Cloudflare Pages does. Open `/404.html` directly to look at it.
 
-**1. One stylesheet, tokens only.** Every colour, size and spacing step is a CSS
-variable defined at the top of `style.css`. Pages contain classes, never raw
-values. If you need a new colour, add a token rather than a hex in the page. Dark
-mode is automatic and works only because everything reads from tokens.
+## How the two languages work
 
-**2. Header and footer are components.** Each page writes `<site-header>` and
-`<site-footer>`; the markup comes from `layout.js`. Adding a nav item is a
-one-line edit that applies everywhere. Your name and email live in the `SITE`
-object at the top of that file.
+Each page is written directly in its own language. There is no runtime text
+swapping: `/it/cv/` contains Italian, `/en/cv/` contains English, and both work
+with JavaScript disabled.
 
-**3. Always start from something that exists.** New page: copy `_template.html`.
-Not sure which classes are available: open `/stile/`, which renders every
-component next to the markup to copy.
+The URLs are translated too — `/it/articoli/` ↔ `/en/articles/`,
+`/it/strumenti/` ↔ `/en/tools/`. Each page names its twin once, in its `<head>`:
 
-## Adding a tool
+```html
+<link rel="canonical" href="/en/articles/">
+<link rel="alternate" hreflang="it" href="/it/articoli/">
+<link rel="alternate" hreflang="en" href="/en/articles/">
+<link rel="alternate" hreflang="x-default" href="/it/articoli/">
+```
 
-1. `cp _template.html tools/tool-name/index.html`
-2. If it needs logic, create `assets/js/tools/tool-name.js` and reference it at
-   the bottom of the page. Use `calcolatore-tasse.js` as the model: constants at
-   the top, a pure calculation function, interface code last.
-3. Add a row to `tools/index.html`, and to the Tool section of `index.html` if
-   you want it featured.
+That declaration is the only record of the pairing. Search engines need it, and
+the language switcher in the header reads it to know where to go — so there is no
+routing table to maintain, and no second place to update. A page that omits it
+simply shows no switcher, which is what `/stile/` does.
 
-## Adding an article
-
-One row in `articoli/index.html`, under the right year. The right-hand column
-holds the destination domain (`medium.com`, `linkedin.com`) — that is what a
-reader wants to know before clicking.
+**The cost of this design:** editing a page means editing two files. Nothing
+enforces it. That is the thing to watch when changing content.
 
 ## Adding a page
 
-Always `folder/index.html`, never `folder.html`. This gives clean URLs (`/cv/`)
+1. `cp _template.it.html it/section/name/index.html`
+2. `cp _template.en.html en/section/name/index.html`
+3. In both: update the title, the description, and the four language links
+4. Link it from the relevant index page in **both** trees
+
+Always `folder/index.html`, never `folder.html`. This gives clean URLs (`/it/cv/`)
 that stay stable if the site is ever migrated to a static site generator.
+
+## Adding a tool
+
+1. Create the page in both trees, as above
+2. If it needs logic, create **one** `assets/js/tools/tool-name.js` and reference
+   it at the bottom of both pages. Use `calcolatore-tasse.js` as the model:
+   constants at the top, a pure calculation function, interface code last
+3. Add a row to both tool indexes, and to the Tool section of both home pages if
+   you want it featured
+
+Both pages use the same element ids so a single file of logic drives them. Text
+the tool prints itself — dropdown options, status messages — goes through
+`I18N.t({ it, en })`; number formatting uses `I18N.locale`.
+
+## Adding an article
+
+One row in `it/articoli/index.html` and one in `en/articles/index.html`, under the
+right year. The right-hand column holds the destination domain (`medium.com`,
+`linkedin.com`) — that is what a reader wants to know before clicking.
+
+The title is the real published title and is **identical in both files**. Only the
+month is translated.
 
 ## Deploying to Cloudflare Pages
 
@@ -86,16 +122,20 @@ paths are absolute.
 ## Before going live
 
 - [ ] Replace `Nome Cognome` and `ciao@esempio.it` in `layout.js`
-- [ ] Update the name, titles and descriptions in each `index.html`
-- [ ] Add `assets/cv.pdf` and re-enable the download link in `cv/index.html`
-      (currently commented out), or drop it
+- [ ] Update the name, titles and descriptions in all ten pages
+- [ ] Fill the CV in both languages
+- [ ] Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
+      files (currently commented out), or drop it
 - [ ] Verify the rates and coefficients in `calcolatore-tasse.js`
 - [ ] Add a favicon under `assets/`
+- [ ] Once the domain exists, make the `hreflang` and `canonical` URLs absolute —
+      Google ignores relative `hreflang`
 
 ## Conventions and gotchas
 
-See [`CLAUDE.md`](CLAUDE.md). It documents the design direction, the constraints
-behind these choices, and the traps worth knowing about before changing anything
-— why `layout.js` must not be deferred, the CSS specificity pitfall in `.prose`,
-and what the tax constants actually are. Written for Claude Code, useful to any
-human picking the repo back up after a few months.
+See [`.claude/CLAUDE.md`](.claude/CLAUDE.md). It documents the design direction,
+the constraints behind these choices, and the traps worth knowing about before
+changing anything — why `i18n.js` must load before `layout.js` and neither may be
+deferred, why every JS file shares one global scope, the CSS specificity pitfall
+in `.prose`, and what the tax constants actually are. Written for Claude Code,
+useful to any human picking the repo back up after a few months.

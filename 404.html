@@ -3,13 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pagina non trovata — Nome Cognome</title>
+  <title>Pagina non trovata · Page not found — Nome Cognome</title>
   <meta name="robots" content="noindex">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
+
+  <script src="/assets/js/i18n.js"></script>
+  <script>
+    /*
+      LA LINGUA DI UNA PAGINA CHE NON ESISTE
+
+      È l'unica pagina del sito servita a un indirizzo che non conosciamo in
+      anticipo, quindi la lingua non può stare scritta in <html lang>: la si
+      deduce dall'indirizzo sbagliato. Chi sbaglia un indirizzo sotto /en/
+      stava leggendo in inglese, e merita l'errore in inglese.
+
+      Se il percorso non dice niente (per esempio /roba-a-caso), si ricade
+      sulla preferenza dell'utente, come sulla home.
+
+      Va prima di layout.js, che legge <html lang> per costruire la testata.
+    */
+    (function () {
+      var percorso = location.pathname;
+      var lingua;
+
+      if (percorso.indexOf("/en/") === 0) {
+        lingua = "en";
+      } else if (percorso.indexOf("/it/") === 0) {
+        lingua = "it";
+      } else {
+        lingua = I18N.rilevata();
+      }
+
+      document.documentElement.lang = lingua;
+    })();
+  </script>
   <script src="/assets/js/layout.js"></script>
 </head>
 <body>
@@ -17,30 +48,73 @@
 <site-header></site-header>
 
 <main id="contenuto" class="wrap page">
+  <!--
+    Il contenuto lo scrive lo script in fondo alla pagina. È l'unica pagina
+    del sito costruita così, e per la stessa ragione per cui la testata è un
+    componente: la lingua si sa solo a runtime. Chi non ha JavaScript vede il
+    <noscript>, che dice la stessa cosa in tutte e due le lingue.
+  -->
+  <noscript>
+    <h1 class="title title--page">Pagina non trovata · Page not found</h1>
+    <p class="lede">
+      L'indirizzo è sbagliato, oppure la pagina è stata spostata.<br>
+      The address is wrong, or the page has moved.
+    </p>
 
-  <h1 class="title title--page">Questa pagina non esiste</h1>
-  <p class="lede">L'indirizzo è sbagliato, oppure la pagina è stata spostata.</p>
-
-  <p class="eyebrow">Dove andare</p>
-
-  <nav class="index" aria-label="Sezioni principali">
-    <a class="index__row" href="/">
-      <span class="index__main"><span class="index__label">Home</span></span>
-      <span class="index__meta">/</span>
-    </a>
-    <a class="index__row" href="/tools/">
-      <span class="index__main"><span class="index__label">Tool</span></span>
-      <span class="index__meta">/tools/</span>
-    </a>
-    <a class="index__row" href="/articoli/">
-      <span class="index__main"><span class="index__label">Articoli</span></span>
-      <span class="index__meta">/articoli/</span>
-    </a>
-  </nav>
-
+    <nav class="index" aria-label="Lingue disponibili · Available languages">
+      <a class="index__row" href="/it/">
+        <span class="index__main"><span class="index__label">Italiano</span></span>
+        <span class="index__meta">/it/</span>
+      </a>
+      <a class="index__row" href="/en/">
+        <span class="index__main"><span class="index__label">English</span></span>
+        <span class="index__meta">/en/</span>
+      </a>
+    </nav>
+  </noscript>
 </main>
 
 <site-footer></site-footer>
 
+<script>
+  (function () {
+    var lingua = I18N.lingua;
+
+    /* Le sezioni da proporre sono quelle del menu, prese da layout.js:
+       elencarle una seconda volta qui vorrebbe dire dimenticarsi di
+       aggiornarle il giorno che se ne aggiunge una. */
+    var righe = [{ href: LINGUE[lingua].radice, label: "Home" }]
+      .concat(SITE.nav[lingua]);
+
+    var elenco = righe.map(function (voce) {
+      return '<a class="index__row" href="' + voce.href + '">' +
+               '<span class="index__main">' +
+                 '<span class="index__label">' + voce.label + '</span>' +
+               '</span>' +
+               '<span class="index__meta">' + voce.href + '</span>' +
+             '</a>';
+    }).join("");
+
+    document.getElementById("contenuto").innerHTML =
+      '<h1 class="title title--page">' +
+        I18N.t({
+          it: "Questa pagina non esiste",
+          en: "This page doesn't exist",
+        }) +
+      '</h1>' +
+      '<p class="lede">' +
+        I18N.t({
+          it: "L'indirizzo è sbagliato, oppure la pagina è stata spostata.",
+          en: "The address is wrong, or the page has moved.",
+        }) +
+      '</p>' +
+      '<p class="eyebrow">' +
+        I18N.t({ it: "Dove andare", en: "Where to go" }) +
+      '</p>' +
+      '<nav class="index" aria-label="' +
+        I18N.t({ it: "Sezioni principali", en: "Main sections" }) +
+      '">' + elenco + '</nav>';
+  })();
+</script>
 </body>
 </html>

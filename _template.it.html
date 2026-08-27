@@ -1,0 +1,64 @@
+<!--
+  TEMPLATE PER UNA NUOVA PAGINA ITALIANA
+
+  1. Copia questo file in una nuova cartella dentro /it/, rinominandolo
+     index.html.  Esempio: /it/strumenti/convertitore-valute/index.html
+  2. Copia _template.en.html nella cartella gemella dentro /en/.
+     Esempio: /en/tools/currency-converter/index.html
+  3. In tutte e due: cambia <title>, la description e i tre <link> di lingua,
+     che devono puntarsi a vicenda
+  4. Scrivi il contenuto dentro <main>
+  5. Aggiungi la riga corrispondente nell'indice della sezione, in tutte e
+     due le lingue
+
+  IL PASSO 3 È QUELLO CHE NON SI PUÒ SALTARE
+  Il menu a tendina della lingua legge <link rel="alternate">. Una pagina che
+  non dichiara la gemella non è rotta, ma il selettore sparisce: da lì non si
+  può cambiare lingua. Se il selettore non compare su una pagina nuova, la
+  causa è quasi sempre un hreflang sbagliato o mancante.
+
+  Non toccare il resto del <head>: i percorsi sono assoluti e funzionano da
+  qualsiasi profondità di cartella, e i18n.js deve stare prima di layout.js.
+-->
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Titolo della pagina — Nome Cognome</title>
+  <meta name="description" content="Una frase che descrive la pagina.">
+
+  <!-- ⬇ I TRE INDIRIZZI DA CAMBIARE: questo, e la gemella inglese due volte -->
+  <link rel="canonical" href="/it/percorso/della/pagina/">
+  <link rel="alternate" hreflang="it" href="/it/percorso/della/pagina/">
+  <link rel="alternate" hreflang="en" href="/en/path/to/page/">
+  <link rel="alternate" hreflang="x-default" href="/it/percorso/della/pagina/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title title--page">Titolo della pagina</h1>
+  <p class="lede">Sommario in una o due righe.</p>
+
+  <!-- Il contenuto va qui. Per sapere quali classi esistono: /stile/ -->
+
+</main>
+
+<site-footer></site-footer>
+
+<!-- Se la pagina ha logica propria, mettila in un file dedicato. Lo stesso
+     file serve tutte e due le lingue: usa gli stessi id nella pagina inglese
+     e traduci le stringhe con I18N.t({ it, en }).
+<script src="/assets/js/tools/nome-del-tool.js"></script> -->
+</body>
+</html>

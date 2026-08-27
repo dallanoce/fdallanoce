@@ -6,10 +6,16 @@
   <title>Articoli — Nome Cognome</title>
   <meta name="description" content="Articoli scritti da Nome Cognome su Medium, LinkedIn e altre testate.">
 
+  <link rel="canonical" href="/it/articoli/">
+  <link rel="alternate" hreflang="it" href="/it/articoli/">
+  <link rel="alternate" hreflang="en" href="/en/articles/">
+  <link rel="alternate" hreflang="x-default" href="/it/articoli/">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
   <script src="/assets/js/layout.js"></script>
 </head>
 <body>
@@ -32,6 +38,10 @@
     Copia un blocco <a class="index__row"> e cambia tre cose:
     href, index__label (il titolo) e index__meta (il dominio di destinazione).
     Il mese va in index__note.
+
+    Poi ripeti la stessa riga in /en/articles/. Il titolo NON si traduce: è
+    il titolo vero dell'articolo pubblicato, uno solo in tutte le lingue.
+    Si traduce solo il mese, che è una parola del sito e non dell'articolo.
   -->
   <nav class="index" aria-label="Articoli del 2026">
     <a class="index__row" href="https://medium.com/@utente/primo-articolo">

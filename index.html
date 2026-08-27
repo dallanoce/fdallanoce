@@ -4,84 +4,71 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nome Cognome</title>
-  <meta name="description" content="Sito personale di Nome Cognome: CV, articoli e piccoli tool.">
+
+  <!--
+    SMISTAMENTO PER LINGUA
+
+    Questa non è una pagina: è il bivio all'ingresso del sito. Il contenuto
+    vero sta in /it/ e /en/, e chi arriva su "/" viene mandato in uno dei due.
+
+    La scelta la fa I18N.rilevata(): prima la lingua già scelta col menu a
+    tendina, poi quella del browser, poi l'italiano.
+
+    Perché in JavaScript e non con una regola del server: un file di
+    redirect (_redirects, netlify.toml, un Worker) legherebbe il sito a un
+    hosting preciso. Così invece il sito resta un mucchio di file statici che
+    si copiano su qualsiasi hosting e funzionano, che è il punto di partenza
+    di tutto il progetto.
+
+    Il redirect usa location.replace() e non location.href: sostituisce la
+    voce nella cronologia invece di aggiungerne una, così il tasto "indietro"
+    torna da dove si veniva e non rimbalza di nuovo qui.
+
+    Il <body> qui sotto è la rete di sicurezza: lo vede chi ha JavaScript
+    disattivato, e resta una pagina sensata da cui scegliere a mano.
+  -->
+  <meta name="robots" content="noindex, follow">
+
+  <link rel="alternate" hreflang="it" href="/it/">
+  <link rel="alternate" hreflang="en" href="/en/">
+  <link rel="alternate" hreflang="x-default" href="/it/">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
-  <script src="/assets/js/layout.js"></script>
+  <script src="/assets/js/i18n.js"></script>
+  <script>
+    location.replace(LINGUE[I18N.rilevata()].radice);
+  </script>
 </head>
 <body>
 
-<site-header></site-header>
-
 <main id="contenuto" class="wrap page">
 
-  <h1 class="title">Nome Cognome</h1>
+  <h1 class="title title--page">Nome Cognome</h1>
   <p class="lede">
-    <!-- TODO: due righe, non di più. Chi sei e di cosa ti occupi. -->
-    Sviluppatore backend. Scrivo di sistemi distribuiti e costruisco
-    piccoli strumenti che mi tornano utili nel lavoro di tutti i giorni.
+    Scegli una lingua. · Choose a language.
   </p>
 
-  <div class="tags">
-    <span class="tag">Go</span>
-    <span class="tag">Kubernetes</span>
-    <span class="tag">PostgreSQL</span>
-  </div>
-
-
-  <p class="eyebrow">Dove trovarmi</p>
-
-  <nav class="index" aria-label="Contatti e profili">
-    <a class="index__row" href="https://github.com/utente">
-      <span class="index__main"><span class="index__label">GitHub</span></span>
-      <span class="index__meta">github.com/utente</span>
-    </a>
-    <a class="index__row" href="https://www.linkedin.com/in/utente/">
-      <span class="index__main"><span class="index__label">LinkedIn</span></span>
-      <span class="index__meta">linkedin.com/in/utente</span>
-    </a>
-    <a class="index__row" href="mailto:ciao@esempio.it">
-      <span class="index__main"><span class="index__label">Email</span></span>
-      <span class="index__meta">ciao@esempio.it</span>
-    </a>
-  </nav>
-
-
-  <p class="eyebrow">Tool</p>
-
-  <nav class="index" aria-label="Tool disponibili">
-    <a class="index__row" href="/tools/calcolatore-tasse/">
+  <nav class="index" aria-label="Lingue disponibili · Available languages">
+    <a class="index__row" href="/it/">
       <span class="index__main">
-        <span class="index__label">Calcolatore tasse</span>
-        <span class="index__note">Stima imposte e contributi in regime forfettario.</span>
+        <span class="index__label">Italiano</span>
+        <span class="index__note">CV, articoli e piccoli tool.</span>
       </span>
-      <span class="index__meta">/tools/calcolatore-tasse/</span>
+      <span class="index__meta">/it/</span>
     </a>
-  </nav>
-
-  <p class="index__more"><a href="/tools/">Tutti i tool →</a></p>
-
-
-  <p class="eyebrow">Ultimi articoli</p>
-
-  <nav class="index" aria-label="Articoli recenti">
-    <a class="index__row" href="https://medium.com/@utente/esempio">
+    <a class="index__row" href="/en/">
       <span class="index__main">
-        <span class="index__label">Titolo dell'articolo</span>
-        <span class="index__note">Marzo 2026</span>
+        <span class="index__label">English</span>
+        <span class="index__note">CV, articles and small tools.</span>
       </span>
-      <span class="index__meta">medium.com</span>
+      <span class="index__meta">/en/</span>
     </a>
   </nav>
-
-  <p class="index__more"><a href="/articoli/">Tutti gli articoli →</a></p>
 
 </main>
-
-<site-footer></site-footer>
 
 </body>
 </html>

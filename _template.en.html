@@ -1,0 +1,54 @@
+<!--
+  TEMPLATE PER UNA NUOVA PAGINA INGLESE
+
+  La gemella di _template.it.html: si copiano insieme, vedi le istruzioni là.
+  Le uniche differenze sono <html lang="en">, il testo, e il canonical che
+  punta a questa versione invece che a quella italiana.
+
+  Attenzione a x-default: resta sull'italiano anche qui. Dice ai motori di
+  ricerca quale versione servire a chi non corrisponde a nessuna lingua, e
+  la risposta è sempre la stessa — l'italiano è la lingua di partenza del
+  sito. Non è un copia-incolla sbagliato.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page title — Nome Cognome</title>
+  <meta name="description" content="One sentence describing the page.">
+
+  <!-- ⬇ I TRE INDIRIZZI DA CAMBIARE: questo, e la gemella italiana due volte -->
+  <link rel="canonical" href="/en/path/to/page/">
+  <link rel="alternate" hreflang="it" href="/it/percorso/della/pagina/">
+  <link rel="alternate" hreflang="en" href="/en/path/to/page/">
+  <link rel="alternate" hreflang="x-default" href="/it/percorso/della/pagina/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title title--page">Page title</h1>
+  <p class="lede">A one or two line summary.</p>
+
+  <!-- Il contenuto va qui. Per sapere quali classi esistono: /stile/ -->
+
+</main>
+
+<site-footer></site-footer>
+
+<!-- Se la pagina ha logica propria, mettila in un file dedicato. Lo stesso
+     file serve tutte e due le lingue: usa gli stessi id della pagina italiana
+     e traduci le stringhe con I18N.t({ it, en }).
+<script src="/assets/js/tools/nome-del-tool.js"></script> -->
+</body>
+</html>

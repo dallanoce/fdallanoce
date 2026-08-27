@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nome Cognome</title>
+  <meta name="description" content="Sito personale di Nome Cognome: CV, articoli e piccoli tool.">
+
+  <!-- Le due versioni di questa pagina. Il selettore di lingua nella testata
+       legge <link rel="alternate">: dichiarare qui la gemella è insieme la
+       cosa che serve ai motori di ricerca e l'unica cosa che serve al menu. -->
+  <link rel="canonical" href="/it/">
+  <link rel="alternate" hreflang="it" href="/it/">
+  <link rel="alternate" hreflang="en" href="/en/">
+  <link rel="alternate" hreflang="x-default" href="/it/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title">Nome Cognome</h1>
+  <p class="lede">
+    <!-- TODO: due righe, non di più. Chi sei e di cosa ti occupi. -->
+    Sviluppatore backend. Scrivo di sistemi distribuiti e costruisco
+    piccoli strumenti che mi tornano utili nel lavoro di tutti i giorni.
+  </p>
+
+  <div class="tags">
+    <span class="tag">Go</span>
+    <span class="tag">Kubernetes</span>
+    <span class="tag">PostgreSQL</span>
+  </div>
+
+
+  <p class="eyebrow">Dove trovarmi</p>
+
+  <nav class="index" aria-label="Contatti e profili">
+    <a class="index__row" href="https://github.com/utente">
+      <span class="index__main"><span class="index__label">GitHub</span></span>
+      <span class="index__meta">github.com/utente</span>
+    </a>
+    <a class="index__row" href="https://www.linkedin.com/in/utente/">
+      <span class="index__main"><span class="index__label">LinkedIn</span></span>
+      <span class="index__meta">linkedin.com/in/utente</span>
+    </a>
+    <a class="index__row" href="mailto:ciao@esempio.it">
+      <span class="index__main"><span class="index__label">Email</span></span>
+      <span class="index__meta">ciao@esempio.it</span>
+    </a>
+  </nav>
+
+
+  <p class="eyebrow">Tool</p>
+
+  <nav class="index" aria-label="Tool disponibili">
+    <a class="index__row" href="/it/strumenti/calcolatore-tasse/">
+      <span class="index__main">
+        <span class="index__label">Calcolatore tasse</span>
+        <span class="index__note">Stima imposte e contributi in regime forfettario.</span>
+      </span>
+      <span class="index__meta">/it/strumenti/calcolatore-tasse/</span>
+    </a>
+  </nav>
+
+  <p class="index__more"><a href="/it/strumenti/">Tutti i tool →</a></p>
+
+
+  <p class="eyebrow">Ultimi articoli</p>
+
+  <nav class="index" aria-label="Articoli recenti">
+    <a class="index__row" href="https://medium.com/@utente/esempio">
+      <span class="index__main">
+        <span class="index__label">Titolo dell'articolo</span>
+        <span class="index__note">Marzo 2026</span>
+      </span>
+      <span class="index__meta">medium.com</span>
+    </a>
+  </nav>
+
+  <p class="index__more"><a href="/it/articoli/">Tutti gli articoli →</a></p>
+
+</main>
+
+<site-footer></site-footer>
+
+</body>
+</html>
