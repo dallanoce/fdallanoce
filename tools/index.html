@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nome Cognome</title>
-  <meta name="description" content="Sito personale di Nome Cognome: CV, articoli e piccoli tool.">
+  <title>Tool — Nome Cognome</title>
+  <meta name="description" content="Piccoli strumenti che girano interamente nel browser: nessun dato viene inviato da nessuna parte.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,40 +18,29 @@
 
 <main id="contenuto" class="wrap page">
 
-  <h1 class="title">Nome Cognome</h1>
+  <h1 class="title title--page">Tool</h1>
   <p class="lede">
-    <!-- TODO: due righe, non di più. Chi sei e di cosa ti occupi. -->
-    Sviluppatore backend. Scrivo di sistemi distribuiti e costruisco
-    piccoli strumenti che mi tornano utili nel lavoro di tutti i giorni.
+    Piccoli strumenti che mi tornano utili nel lavoro di tutti i giorni.
+    Li tengo qui perché possano servire anche a qualcun altro.
   </p>
 
-  <div class="tags">
-    <span class="tag">Go</span>
-    <span class="tag">Kubernetes</span>
-    <span class="tag">PostgreSQL</span>
+  <div class="note">
+    <p>
+      Ogni tool gira interamente nel browser: i dati che inserisci restano sul
+      tuo computer e non vengono inviati a nessun server.
+    </p>
   </div>
 
 
-  <p class="eyebrow">Dove trovarmi</p>
+  <p class="eyebrow">Disponibili</p>
 
-  <nav class="index" aria-label="Contatti e profili">
-    <a class="index__row" href="https://github.com/utente">
-      <span class="index__main"><span class="index__label">GitHub</span></span>
-      <span class="index__meta">github.com/utente</span>
-    </a>
-    <a class="index__row" href="https://www.linkedin.com/in/utente/">
-      <span class="index__main"><span class="index__label">LinkedIn</span></span>
-      <span class="index__meta">linkedin.com/in/utente</span>
-    </a>
-    <a class="index__row" href="mailto:ciao@esempio.it">
-      <span class="index__main"><span class="index__label">Email</span></span>
-      <span class="index__meta">ciao@esempio.it</span>
-    </a>
-  </nav>
-
-
-  <p class="eyebrow">Tool</p>
-
+  <!--
+    COME AGGIUNGERE UN TOOL
+    Copia un blocco <a class="index__row"> e cambia tre cose:
+    href, index__label (il nome) e index__note (una riga di descrizione).
+    A destra, in index__meta, va il percorso interno: è l'elemento che
+    distingue i link che restano sul sito da quelli che portano fuori.
+  -->
   <nav class="index" aria-label="Tool disponibili">
     <a class="index__row" href="/tools/calcolatore-tasse/">
       <span class="index__main">
@@ -61,23 +50,6 @@
       <span class="index__meta">/tools/calcolatore-tasse/</span>
     </a>
   </nav>
-
-  <p class="index__more"><a href="/tools/">Tutti i tool →</a></p>
-
-
-  <p class="eyebrow">Ultimi articoli</p>
-
-  <nav class="index" aria-label="Articoli recenti">
-    <a class="index__row" href="https://medium.com/@utente/esempio">
-      <span class="index__main">
-        <span class="index__label">Titolo dell'articolo</span>
-        <span class="index__note">Marzo 2026</span>
-      </span>
-      <span class="index__meta">medium.com</span>
-    </a>
-  </nav>
-
-  <p class="index__more"><a href="/articoli/">Tutti gli articoli →</a></p>
 
 </main>
 
