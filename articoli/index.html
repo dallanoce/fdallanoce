@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Articoli — Nome Cognome</title>
+  <meta name="description" content="Articoli scritti da Nome Cognome su Medium, LinkedIn e altre testate.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title title--page">Articoli</h1>
+  <p class="lede">
+    Quello che scrivo vive sulle piattaforme dove ha più lettori.
+    Qui trovi l'elenco completo, in ordine di pubblicazione.
+  </p>
+
+
+  <p class="eyebrow">2026</p>
+
+  <!--
+    COME AGGIUNGERE UN ARTICOLO
+    Copia un blocco <a class="index__row"> e cambia tre cose:
+    href, index__label (il titolo) e index__meta (il dominio di destinazione).
+    Il mese va in index__note.
+  -->
+  <nav class="index" aria-label="Articoli del 2026">
+    <a class="index__row" href="https://medium.com/@utente/primo-articolo">
+      <span class="index__main">
+        <span class="index__label">Titolo del primo articolo</span>
+        <span class="index__note">Marzo 2026</span>
+      </span>
+      <span class="index__meta">medium.com</span>
+    </a>
+
+    <a class="index__row" href="https://www.linkedin.com/pulse/esempio">
+      <span class="index__main">
+        <span class="index__label">Titolo del secondo articolo</span>
+        <span class="index__note">Gennaio 2026</span>
+      </span>
+      <span class="index__meta">linkedin.com</span>
+    </a>
+  </nav>
+
+
+  <p class="eyebrow">2025</p>
+
+  <nav class="index" aria-label="Articoli del 2025">
+    <a class="index__row" href="https://dev.to/utente/esempio">
+      <span class="index__main">
+        <span class="index__label">Titolo di un articolo più vecchio</span>
+        <span class="index__note">Novembre 2025</span>
+      </span>
+      <span class="index__meta">dev.to</span>
+    </a>
+  </nav>
+
+</main>
+
+<site-footer></site-footer>
+
+</body>
+</html>

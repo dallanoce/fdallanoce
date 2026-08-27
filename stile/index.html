@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guida di stile — Nome Cognome</title>
+  <meta name="robots" content="noindex">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<main id="contenuto" class="wrap page">
+
+  <h1 class="title title--page">Guida di stile</h1>
+  <p class="lede">
+    Tutto quello che il sito sa disegnare. Quando aggiungi una pagina,
+    apri questa e copia il markup che ti serve invece di inventarne di nuovo.
+  </p>
+
+  <div class="note">
+    <p>Pagina di servizio, esclusa dai motori di ricerca. Non è nel menu: ci arrivi solo da <span class="mono">/stile/</span>.</p>
+  </div>
+
+
+  <p class="eyebrow">Titoli</p>
+
+  <h2 class="title">Titolo grande</h2>
+  <pre class="code">&lt;h1 class="title"&gt;…&lt;/h1&gt;</pre>
+
+  <h2 class="title title--page">Titolo di pagina interna</h2>
+  <pre class="code">&lt;h1 class="title title--page"&gt;…&lt;/h1&gt;</pre>
+
+  <p class="lede">Sommario introduttivo, più grande del corpo e in grigio.</p>
+  <pre class="code">&lt;p class="lede"&gt;…&lt;/p&gt;</pre>
+
+
+  <p class="eyebrow">Etichetta di sezione</p>
+
+  <p class="muted">Il filetto si allunga da solo fino al bordo. Usala per separare le sezioni.</p>
+  <pre class="code">&lt;p class="eyebrow"&gt;Nome sezione&lt;/p&gt;</pre>
+
+
+  <p class="eyebrow">Indice di link</p>
+
+  <p class="muted">La struttura ricorrente del sito. A destra va sempre la destinazione: il dominio se il link esce, il percorso se resta dentro.</p>
+
+  <nav class="index">
+    <a class="index__row" href="#">
+      <span class="index__main"><span class="index__label">Voce semplice</span></span>
+      <span class="index__meta">esempio.com</span>
+    </a>
+    <a class="index__row" href="#">
+      <span class="index__main">
+        <span class="index__label">Voce con descrizione</span>
+        <span class="index__note">Una riga che spiega di cosa si tratta.</span>
+      </span>
+      <span class="index__meta">/percorso/interno/</span>
+    </a>
+  </nav>
+
+  <pre class="code">&lt;nav class="index"&gt;
+  &lt;a class="index__row" href="#"&gt;
+    &lt;span class="index__main"&gt;
+      &lt;span class="index__label"&gt;Titolo&lt;/span&gt;
+      &lt;span class="index__note"&gt;Descrizione&lt;/span&gt;
+    &lt;/span&gt;
+    &lt;span class="index__meta"&gt;destinazione&lt;/span&gt;
+  &lt;/a&gt;
+&lt;/nav&gt;
+&lt;p class="index__more"&gt;&lt;a href="#"&gt;Vedi tutti →&lt;/a&gt;&lt;/p&gt;</pre>
+
+
+  <p class="eyebrow">Testo discorsivo</p>
+
+  <div class="prose">
+    <p>Il paragrafo dentro <span class="mono">.prose</span> ha già la larghezza giusta per la lettura e la spaziatura verticale automatica.</p>
+    <h2>Sottotitolo</h2>
+    <p>Non serve aggiungere margini a mano.</p>
+    <ul>
+      <li>Elenco puntato</li>
+      <li>Seconda voce</li>
+    </ul>
+  </div>
+
+  <pre class="code">&lt;div class="prose"&gt;
+  &lt;p&gt;…&lt;/p&gt;
+  &lt;h2&gt;…&lt;/h2&gt;
+  &lt;ul&gt;&lt;li&gt;…&lt;/li&gt;&lt;/ul&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Nota</p>
+
+  <div class="note">
+    <p>Per avvertenze, disclaimer e precisazioni.</p>
+  </div>
+  <pre class="code">&lt;div class="note"&gt;&lt;p&gt;…&lt;/p&gt;&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Card e tag</p>
+
+  <div class="card">
+    <p class="muted">Contenitore con sfondo e bordo, per raggruppare qualcosa.</p>
+  </div>
+  <pre class="code">&lt;div class="card"&gt;…&lt;/div&gt;</pre>
+
+  <div class="tags">
+    <span class="tag">Go</span>
+    <span class="tag">PostgreSQL</span>
+    <span class="tag">Terraform</span>
+  </div>
+  <pre class="code">&lt;div class="tags"&gt;&lt;span class="tag"&gt;…&lt;/span&gt;&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Voce di CV</p>
+
+  <article class="entry">
+    <div class="entry__head">
+      <span>
+        <span class="entry__role">Ruolo</span>
+        <span class="entry__org">· Azienda</span>
+      </span>
+      <span class="entry__dates">2022 — oggi</span>
+    </div>
+    <div class="entry__body">
+      <ul><li>Cosa hai fatto.</li></ul>
+    </div>
+  </article>
+
+  <pre class="code">&lt;article class="entry"&gt;
+  &lt;div class="entry__head"&gt;
+    &lt;span&gt;
+      &lt;span class="entry__role"&gt;Ruolo&lt;/span&gt;
+      &lt;span class="entry__org"&gt;· Azienda&lt;/span&gt;
+    &lt;/span&gt;
+    &lt;span class="entry__dates"&gt;2022 — oggi&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class="entry__body"&gt;&lt;ul&gt;&lt;li&gt;…&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;
+&lt;/article&gt;</pre>
+
+
+  <p class="eyebrow">Form per i tool</p>
+
+  <div class="form">
+    <div class="field">
+      <label class="field__label" for="demo-input">Campo numerico</label>
+      <input class="field__input" type="number" id="demo-input" value="1000">
+      <span class="field__hint">Il testo di aiuto sotto al campo.</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="demo-select">Menu a tendina</label>
+      <select class="field__select" id="demo-select">
+        <option>Prima opzione</option>
+        <option>Seconda opzione</option>
+      </select>
+    </div>
+    <button class="btn" type="button">Azione principale</button>
+    <button class="btn btn--ghost" type="button">Azione secondaria</button>
+  </div>
+
+  <pre class="code">&lt;div class="form"&gt;
+  &lt;div class="field"&gt;
+    &lt;label class="field__label" for="x"&gt;Etichetta&lt;/label&gt;
+    &lt;input class="field__input" type="number" id="x"&gt;
+    &lt;span class="field__hint"&gt;Aiuto&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;button class="btn" type="button"&gt;Azione&lt;/button&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Risultati di un tool</p>
+
+  <div class="result">
+    <div class="result__row">
+      <span class="result__key">Una voce</span>
+      <span class="result__value">1.234 €</span>
+    </div>
+    <div class="result__row result__row--total">
+      <span class="result__key">Totale</span>
+      <span class="result__value">5.678 €</span>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="result"&gt;
+  &lt;div class="result__row"&gt;
+    &lt;span class="result__key"&gt;Voce&lt;/span&gt;
+    &lt;span class="result__value"&gt;123 €&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class="result__row result__row--total"&gt;…&lt;/div&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Colori</p>
+
+  <div class="prose">
+    <ul>
+      <li><span class="mono">--ink</span> testo principale</li>
+      <li><span class="mono">--ink-2</span> testo secondario</li>
+      <li><span class="mono">--ink-3</span> metadati e testo tenue</li>
+      <li><span class="mono">--accent</span> link e stati attivi</li>
+      <li><span class="mono">--rule</span> filetti e bordi</li>
+      <li><span class="mono">--paper</span> / <span class="mono">--surface</span> sfondi</li>
+    </ul>
+    <p>Il tema scuro è automatico: segue le impostazioni del sistema operativo. Non serve fare niente, basta usare i token invece dei colori fissi.</p>
+  </div>
+
+</main>
+
+<site-footer></site-footer>
+
+</body>
+</html>

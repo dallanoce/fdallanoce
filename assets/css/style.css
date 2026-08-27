@@ -1,0 +1,548 @@
+/* ==========================================================================
+   STYLE.CSS — foglio di stile unico del sito
+
+   REGOLA D'ORO
+   Nelle pagine HTML non scrivere mai un colore, una dimensione o un margine.
+   Usa solo le classi definite qui sotto. Se ti serve qualcosa che non esiste,
+   aggiungilo in questo file una volta sola, poi riusalo ovunque.
+
+   Vedi /stile/ per il catalogo visivo di tutte le classi disponibili.
+
+   INDICE
+   1. Token          — colori, tipografia, spaziature
+   2. Reset          — normalizzazione di base
+   3. Layout         — contenitore e struttura pagina
+   4. Testata        — masthead e navigazione
+   5. Tipografia     — titoli, prose, eyebrow
+   6. Indice         — righe titolo/destinazione (elemento firma del sito)
+   7. Blocchi        — card, note, tag
+   8. Voci CV        — esperienze e formazione
+   9. Form           — campi, bottoni, risultati (per i tool)
+   10. Footer
+   11. Utility
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. TOKEN
+   L'unico posto dove si definiscono i valori grezzi.
+   Cambia un token qui e cambia tutto il sito.
+   ========================================================================== */
+
+:root {
+  /* --- Colori: luce ------------------------------------------------------ */
+  --paper:        #F5F6F4;   /* sfondo pagina */
+  --surface:      #FFFFFF;   /* sfondo di card e campi */
+  --ink:          #191C18;   /* testo principale */
+  --ink-2:        #5C6259;   /* testo secondario */
+  --ink-3:        #8A9086;   /* metadati, testo tenue */
+  --accent:       #2C6A4A;   /* verde pino: link, stati attivi */
+  --accent-deep:  #1E4D35;   /* accento su hover */
+  --accent-soft:  #E4EDE6;   /* fondo tenue dell'accento */
+  --rule:         #DEE1DA;   /* filetti e bordi */
+
+  /* --- Tipografia -------------------------------------------------------- */
+  --font-ui:   "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --t-xs:   0.75rem;    /* 12px — metadati, eyebrow */
+  --t-sm:   0.875rem;   /* 14px — didascalie, nav */
+  --t-base: 1rem;       /* 16px — corpo */
+  --t-lg:   1.125rem;   /* 18px — corpo grande, intro */
+  --t-xl:   1.375rem;   /* 22px — titoli di sezione */
+  --t-2xl:  1.875rem;   /* 30px — titolo pagina */
+  --t-3xl:  2.5rem;     /* 40px — titolo home */
+
+  --leading-tight: 1.2;
+  --leading-body:  1.65;
+
+  /* --- Spaziature: scala a passo 4px ------------------------------------- */
+  --s-1:  0.25rem;
+  --s-2:  0.5rem;
+  --s-3:  0.75rem;
+  --s-4:  1rem;
+  --s-5:  1.5rem;
+  --s-6:  2rem;
+  --s-7:  2.5rem;
+  --s-8:  3rem;
+  --s-10: 4rem;
+  --s-12: 6rem;
+
+  /* --- Forma ------------------------------------------------------------- */
+  --radius:    4px;
+  --radius-lg: 8px;
+  --width:     43rem;    /* larghezza massima della colonna di lettura */
+  --speed:     0.18s;
+}
+
+/* --- Colori: scuro (automatico, segue le preferenze di sistema) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:       #131612;
+    --surface:     #1B1F1A;
+    --ink:         #E9ECE7;
+    --ink-2:       #A2A99E;
+    --ink-3:       #767D72;
+    --accent:      #7CC49B;
+    --accent-deep: #A3DCBB;
+    --accent-soft: #22301F;
+    --rule:        #2C3229;
+  }
+}
+
+
+/* ==========================================================================
+   2. RESET
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-base);
+  line-height: var(--leading-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img, svg { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--accent-deep); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ==========================================================================
+   3. LAYOUT
+   ========================================================================== */
+
+.wrap {
+  width: 100%;
+  max-width: var(--width);
+  margin-inline: auto;
+  padding-inline: var(--s-5);
+}
+
+.page { padding-block: var(--s-8) var(--s-12); }
+
+/* Salto rapido al contenuto per chi naviga da tastiera */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: var(--s-2);
+  background: var(--surface);
+  color: var(--ink);
+  padding: var(--s-2) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  z-index: 10;
+}
+.skip:focus { left: var(--s-4); }
+
+
+/* ==========================================================================
+   4. TESTATA
+   ========================================================================== */
+
+.masthead {
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.masthead__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+  padding-block: var(--s-4);
+}
+
+.masthead__name {
+  font-size: var(--t-base);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.masthead__name:hover { color: var(--accent); }
+
+.nav {
+  display: flex;
+  gap: var(--s-5);
+  font-size: var(--t-sm);
+}
+
+.nav__link {
+  color: var(--ink-2);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1.5px solid transparent;
+  transition: color var(--speed) ease, border-color var(--speed) ease;
+}
+.nav__link:hover { color: var(--ink); }
+.nav__link.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+
+/* ==========================================================================
+   5. TIPOGRAFIA
+   ========================================================================== */
+
+.title {
+  font-size: var(--t-3xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.025em;
+  margin: 0 0 var(--s-4);
+}
+
+.title--page {
+  font-size: var(--t-2xl);
+  margin-bottom: var(--s-3);
+}
+
+.lede {
+  font-size: var(--t-lg);
+  color: var(--ink-2);
+  margin: 0 0 var(--s-6);
+  max-width: 34rem;
+}
+
+/* Etichetta di sezione con filetto che prosegue fino a bordo colonna */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  margin: var(--s-10) 0 var(--s-4);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* Blocco di testo discorsivo.
+   Attenzione alla specificità: azzerare i margini con un selettore di tipo
+   (.prose p) batterebbe la regola di spaziatura automatica. Si azzera tutto
+   con .prose > * e si riapplica lo spazio con la stessa specificità. */
+.prose { max-width: 34rem; }
+.prose > *     { margin: 0; }
+.prose > * + * { margin-top: var(--s-4); }
+
+.prose p { color: var(--ink-2); }
+.prose h2 {
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.prose > * + h2 { margin-top: var(--s-7); }
+.prose ul { padding-left: var(--s-5); color: var(--ink-2); }
+.prose li + li { margin-top: var(--s-2); }
+
+
+/* ==========================================================================
+   6. INDICE — l'elemento firma del sito
+   Ogni riga mostra il titolo e, in monospace, dove porta:
+   il dominio esterno per gli articoli, il percorso interno per i tool.
+   ========================================================================== */
+
+.index { border-top: 1px solid var(--rule); }
+
+.index__row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-5);
+  padding: var(--s-4) 0 var(--s-4) var(--s-4);
+  border-bottom: 1px solid var(--rule);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Barretta d'accento che scorre dall'alto al passaggio del mouse */
+.index__row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--speed) ease;
+}
+.index__row:hover::before,
+.index__row:focus-visible::before { transform: scaleY(1); }
+
+.index__main { min-width: 0; }
+
+.index__label {
+  font-weight: 500;
+  color: var(--ink);
+  transition: color var(--speed) ease;
+}
+.index__row:hover .index__label { color: var(--accent); }
+
+.index__note {
+  display: block;
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: var(--s-1);
+}
+
+.index__meta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition: color var(--speed) ease;
+}
+.index__row:hover .index__meta { color: var(--accent); }
+
+/* Link "vedi tutti" sotto a un indice parziale */
+.index__more {
+  margin: var(--s-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+}
+.index__more a { text-decoration: none; }
+.index__more a:hover { text-decoration: underline; }
+
+@media (max-width: 34rem) {
+  .index__row { flex-direction: column; align-items: flex-start; }
+}
+
+
+/* ==========================================================================
+   7. BLOCCHI
+   ========================================================================== */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: var(--s-5);
+}
+
+.note {
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+.note p { margin: 0; }
+.note p + p { margin-top: var(--s-2); }
+
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+  margin: var(--s-3) 0 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: var(--s-1) var(--s-3);
+}
+
+
+/* ==========================================================================
+   8. VOCI CV
+   ========================================================================== */
+
+.entry { padding-block: var(--s-5); border-bottom: 1px solid var(--rule); }
+.entry:first-of-type { border-top: 1px solid var(--rule); }
+
+.entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-4);
+}
+
+.entry__role { font-weight: 700; color: var(--ink); }
+.entry__org { color: var(--ink-2); }
+
+.entry__dates {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.entry__body { margin-top: var(--s-3); }
+.entry__body ul { margin: 0; padding-left: var(--s-5); color: var(--ink-2); }
+.entry__body li + li { margin-top: var(--s-2); }
+
+
+/* ==========================================================================
+   9. FORM — usati dai tool
+   ========================================================================== */
+
+.form { display: grid; gap: var(--s-4); max-width: 26rem; }
+
+.field { display: grid; gap: var(--s-2); }
+
+.field__label {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.field__hint {
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+.field__input,
+.field__select {
+  font-family: var(--font-ui);
+  font-size: var(--t-base);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3);
+  width: 100%;
+}
+.field__input:focus, .field__select:focus { border-color: var(--accent); }
+
+.btn {
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--paper);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-5);
+  cursor: pointer;
+  justify-self: start;
+  transition: background var(--speed) ease, border-color var(--speed) ease;
+}
+.btn:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+
+.btn--ghost {
+  color: var(--ink-2);
+  background: transparent;
+  border-color: var(--rule);
+}
+.btn--ghost:hover {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--ink-3);
+}
+
+/* Tabellina dei risultati di un tool */
+.result { border-top: 1px solid var(--rule); }
+
+.result__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.result__key { color: var(--ink-2); font-size: var(--t-sm); }
+
+.result__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.result__row--total .result__key { color: var(--ink); font-weight: 500; font-size: var(--t-base); }
+.result__row--total .result__value { color: var(--accent); font-size: var(--t-lg); font-weight: 500; }
+
+.result[hidden] { display: none; }
+
+
+/* ==========================================================================
+   10. FOOTER
+   ========================================================================== */
+
+.footer {
+  border-top: 1px solid var(--rule);
+  margin-top: var(--s-12);
+  padding-block: var(--s-5);
+}
+
+.footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+.footer a { color: var(--ink-3); text-decoration: none; }
+.footer a:hover { color: var(--accent); }
+
+
+/* ==========================================================================
+   11. UTILITY — poche e mirate
+   ========================================================================== */
+
+.stack-sm > * + * { margin-top: var(--s-3); }
+.stack    > * + * { margin-top: var(--s-5); }
+.mono     { font-family: var(--font-mono); font-size: var(--t-sm); }
+.muted    { color: var(--ink-2); }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
