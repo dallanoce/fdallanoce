@@ -18,8 +18,10 @@
    7. Blocchi        — card, note, tag
    8. Voci CV        — esperienze e formazione
    9. Form           — campi, bottoni, risultati (per i tool)
-   10. Footer
-   11. Utility
+   10. Tool grandi   — pannelli, tabelle, barre, liste con spunta
+   11. Footer
+   12. Utility
+   13. Stampa
    ========================================================================== */
 
 
@@ -72,6 +74,10 @@
   --radius:    4px;
   --radius-lg: 8px;
   --width:     43rem;    /* larghezza massima della colonna di lettura */
+
+  /* Colonna larga: la usano solo i tool con tabelle, dove 43rem obbligherebbe
+     a scorrere in orizzontale qualunque cosa. Vedi .wrap--wide. */
+  --width-wide: 62rem;
   --speed:     0.18s;
 }
 
@@ -113,6 +119,12 @@ body {
 
 img, svg { max-width: 100%; height: auto; display: block; }
 
+/* L'attributo hidden deve vincere anche su un display impostato da una
+   classe (una riga di tabella, una griglia): i tool nascondono e mostrano
+   pezzi di pagina con questo, e senza !important una regola qualsiasi di
+   questo foglio se lo mangerebbe. */
+[hidden] { display: none !important; }
+
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:hover { color: var(--accent-deep); }
 
@@ -142,6 +154,9 @@ a:hover { color: var(--accent-deep); }
 }
 
 .page { padding-block: var(--s-8) var(--s-12); }
+
+/* Solo per le pagine con tabelle larghe. Il resto del sito resta stretto. */
+.wrap--wide { max-width: var(--width-wide); }
 
 /* Salto rapido al contenuto per chi naviga da tastiera */
 .skip {
@@ -323,6 +338,10 @@ a:hover { color: var(--accent-deep); }
   height: 1px;
   background: var(--rule);
 }
+
+/* Per le etichette che si ripetono dentro un elenco — una per categoria in
+   una lista della spesa — dove lo stacco pieno sarebbe tutto spazio bianco. */
+.eyebrow--tight { margin-top: var(--s-5); }
 
 /* Blocco di testo discorsivo.
    Attenzione alla specificità: azzerare i margini con un selettore di tipo
@@ -580,11 +599,363 @@ a:hover { color: var(--accent-deep); }
 .result__row--total .result__key { color: var(--ink); font-weight: 500; font-size: var(--t-base); }
 .result__row--total .result__value { color: var(--accent); font-size: var(--t-lg); font-weight: 500; }
 
-.result[hidden] { display: none; }
+
+/* ==========================================================================
+   10. TOOL GRANDI — pannelli, tabelle, barre, liste con spunta
+
+   La sezione 9 basta per un tool con quattro campi e un risultato. Questi
+   componenti servono a un tool che è una tabella da compilare: righe che si
+   aggiungono e si tolgono, celle con dentro un campo, totali in fondo.
+
+   Sono più pesanti degli altri e vanno usati solo dove servono davvero.
+   Una pagina che li usa vuole anche .wrap--wide sul <main>, altrimenti le
+   tabelle scorrono in orizzontale su qualsiasi schermo.
+   ========================================================================== */
+
+
+/* --- Sommario in cifre ----------------------------------------------------
+   Le poche cifre che rispondono alla domanda della pagina, in cima, prima
+   di tutti i dettagli. Due o tre in evidenza con --hero, non di più. */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s-3);
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: var(--s-3) var(--s-4);
+}
+
+.stat__key {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.stat__value {
+  display: block;
+  margin-top: var(--s-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-lg);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.stat--hero { background: var(--accent-soft); border-color: var(--accent); }
+.stat--hero .stat__value { color: var(--accent-deep); }
+
+
+/* --- Pannello richiudibile ------------------------------------------------
+
+   Un <details> con dentro un pezzo di modulo. Serve a tenere corta una
+   pagina lunga: i dati di partenza si aprono, si compilano e si richiudono.
+
+   Il triangolo di sistema viene tolto perché su <summary> in display:flex
+   Safari lo disegna fuori posto; al suo posto c'è il +/− di ::after, che
+   segue il colore del testo e quindi funziona anche in tema scuro. */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  margin-top: var(--s-3);
+}
+
+.panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  list-style: none;
+}
+.panel__head::-webkit-details-marker { display: none; }
+
+.panel__head::after {
+  content: "+";
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--ink-3);
+}
+.panel[open] .panel__head::after { content: "−"; }
+
+.panel[open] .panel__head { border-bottom: 1px solid var(--rule); }
+
+.panel__step {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+.panel__title { font-weight: 500; color: var(--ink); }
+
+.panel__hint {
+  flex: 1 1 14rem;
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+}
+
+.panel__body { padding: var(--s-4); }
+.panel__body > * + * { margin-top: var(--s-4); }
+
+
+/* --- Tabelle di dati ------------------------------------------------------
+   .table-wrap fa scorrere la tabella dentro di sé invece di allargare la
+   pagina: senza, su un telefono scorrerebbe tutto il documento. */
+
+.table-wrap { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--s-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.table thead th {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Numeri: a destra e in monospace, così le colonne si leggono in verticale */
+.table__num { text-align: right; }
+.table td.table__num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.table__name { color: var(--ink); }
+
+/* Riga di intestazione di un gruppo di righe (una categoria) */
+.table__group th {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--paper);
+}
+
+.table__row--total td {
+  font-weight: 500;
+  color: var(--ink);
+  border-bottom: none;
+  border-top: 1px solid var(--rule);
+}
+.table__row--sub td { color: var(--ink-2); }
+
+/* Riga che non entra nel totale perché le manca un dato */
+.table__row--warn { background: var(--accent-soft); }
+
+/* Unità di misura accanto a un campo o a un numero */
+.table__unit {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+
+/* --- Campi dentro una tabella --------------------------------------------
+   Varianti compatte di .field__input e .field__select: stessa cosa, ma
+   dimensionate per stare in una cella senza farla crescere. */
+
+.field__input--compact,
+.field__select--compact {
+  font-size: var(--t-sm);
+  padding: var(--s-1) var(--s-2);
+}
+
+.field__input--num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.field__input--xs { width: 4.5rem; }
+.field__input--sm { width: 6.5rem; }
+.field__select--auto { width: auto; }
+
+.field__check {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Modulo su una riga sola: per aggiungere una voce a una tabella */
+.form--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3);
+  max-width: none;
+}
+.form--inline .field { flex: 1 1 9rem; }
+
+
+/* --- Riga di bottoni ------------------------------------------------------ */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+/* Spinge a destra i bottoni che vengono dopo */
+.actions__gap { flex: 1 1 auto; }
+
+/* Bottone minimo, per un'azione ripetuta su ogni riga di una tabella */
+.btn--icon {
+  padding: var(--s-1) var(--s-2);
+  color: var(--ink-3);
+  background: transparent;
+  border-color: transparent;
+  font-family: var(--font-mono);
+}
+.btn--icon:hover {
+  color: var(--accent);
+  background: var(--surface);
+  border-color: var(--rule);
+}
+
+
+/* --- Cursore con valore --------------------------------------------------- */
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+.range__slider {
+  flex: 1 1 12rem;
+  accent-color: var(--accent);
+}
+
+.range__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+
+/* --- Barre di confronto ---------------------------------------------------
+   La lunghezza della barra è un dato, non uno stile: arriva dal JavaScript
+   nella proprietà --quota. È l'unico modo di far entrare un numero calcolato
+   in un foglio di stile senza scrivere style="" nella pagina. */
+
+.bars { display: grid; gap: var(--s-2); }
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) 2fr auto;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--t-sm);
+}
+
+.bar__track {
+  height: var(--s-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar__fill {
+  width: var(--quota, 0%);
+  height: 100%;
+  background: var(--accent);
+}
+
+.bar__value {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  white-space: nowrap;
+  text-align: right;
+}
+
+
+/* --- Lista con spunta ----------------------------------------------------- */
+
+.checklist { list-style: none; margin: 0; padding: 0; }
+
+.checklist__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.checklist__text { flex: 1 1 auto; }
+.checklist__qty { color: var(--ink-2); }
+
+.checklist__meta {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.checklist__item.is-done .checklist__text {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+
+
+/* --- Messaggio temporaneo -------------------------------------------------
+   Conferma un'azione senza spostare niente nella pagina. Ha role="status"
+   nell'HTML, così anche chi non lo vede se lo sente annunciare. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-5);
+  z-index: 20;
+  transform: translate(-50%, var(--s-8));
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--t-sm);
+  padding: var(--s-2) var(--s-5);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--speed) ease, transform var(--speed) ease;
+}
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
 
 /* ==========================================================================
-   10. FOOTER
+   11. FOOTER
    ========================================================================== */
 
 .footer {
@@ -609,7 +980,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   11. UTILITY — poche e mirate
+   12. UTILITY — poche e mirate
    ========================================================================== */
 
 .stack-sm > * + * { margin-top: var(--s-3); }
@@ -620,4 +991,26 @@ a:hover { color: var(--accent-deep); }
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+
+/* ==========================================================================
+   13. STAMPA
+   Quello che si stampa è il contenuto: testata, footer e comandi restano
+   fuori. Un tool marca con .no-print i suoi moduli e i suoi bottoni, e con
+   .print-only le righe che hanno senso solo sul foglio (un'intestazione con
+   data e totale, che a schermo sarebbe una ripetizione).
+   ========================================================================== */
+
+.print-only { display: none; }
+
+@media print {
+  .masthead, .footer, .skip, .toast, .no-print { display: none !important; }
+  .print-only { display: block; }
+
+  .page { padding-block: 0; }
+  .wrap { max-width: none; padding-inline: 0; }
+  .table { min-width: 0; }
+
+  a { color: var(--ink); text-decoration: none; }
 }

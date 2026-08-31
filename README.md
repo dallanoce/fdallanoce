@@ -21,13 +21,15 @@ documentation is in English.
 │   ├── cv/
 │   ├── articoli/                  links out to published articles
 │   └── strumenti/                 tool index
-│       └── calcolatore-tasse/     one tool = one folder
+│       ├── calcolatore-tasse/     one tool = one folder
+│       └── grigliata/
 ├── en/                            English tree, same shape
 │   ├── index.html
 │   ├── cv/
 │   ├── articles/
 │   └── tools/
-│       └── tax-calculator/
+│       ├── tax-calculator/
+│       └── barbecue/
 ├── stile/                         style guide (noindex, Italian only, not in the nav)
 └── assets/                        shared by both trees, never duplicated
     ├── css/style.css              the entire stylesheet
@@ -122,7 +124,7 @@ paths are absolute.
 ## Before going live
 
 - [ ] Replace `Nome Cognome` and `ciao@esempio.it` in `layout.js`
-- [ ] Update the name, titles and descriptions in all ten pages
+- [ ] Update the name, titles and descriptions in all twelve pages
 - [ ] Fill the CV in both languages
 - [ ] Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
       files (currently commented out), or drop it

@@ -198,6 +198,338 @@
 &lt;/div&gt;</pre>
 
 
+  <p class="eyebrow">Colonna larga</p>
+
+  <p class="muted">
+    Le pagine stanno in una colonna da 43rem, che è la larghezza giusta per
+    leggere. Un tool fatto di tabelle non ci sta: <span class="mono">.wrap--wide</span>
+    la porta a 62rem. Usala solo lì — il resto del sito resta stretto.
+  </p>
+  <pre class="code">&lt;main id="contenuto" class="wrap wrap--wide page"&gt;…&lt;/main&gt;</pre>
+
+
+  <p class="eyebrow">Sommario in cifre</p>
+
+  <p class="muted">
+    Le poche cifre che rispondono alla domanda della pagina, prima dei dettagli.
+    Due o tre in evidenza con <span class="mono">--hero</span>, non di più:
+    se è tutto in evidenza non lo è niente.
+  </p>
+
+  <div class="stats">
+    <div class="stat stat--hero">
+      <span class="stat__key">Totale</span>
+      <span class="stat__value">194,08 €</span>
+    </div>
+    <div class="stat stat--hero">
+      <span class="stat__key">A persona</span>
+      <span class="stat__value">14,93 €</span>
+    </div>
+    <div class="stat">
+      <span class="stat__key">Persone</span>
+      <span class="stat__value">13</span>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="stats"&gt;
+  &lt;div class="stat stat--hero"&gt;
+    &lt;span class="stat__key"&gt;Totale&lt;/span&gt;
+    &lt;span class="stat__value"&gt;194,08 €&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class="stat"&gt;…&lt;/div&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Pannello richiudibile</p>
+
+  <p class="muted">
+    Un <span class="mono">&lt;details&gt;</span> con dentro un pezzo di modulo:
+    serve a tenere corta una pagina lunga. Il numero è facoltativo e ha senso
+    quando i pannelli sono passi da fare in ordine.
+  </p>
+
+  <details class="panel" open>
+    <summary class="panel__head">
+      <span class="panel__step">1</span>
+      <span class="panel__title">Titolo del pannello</span>
+      <span class="panel__hint">Una riga che dice cosa c'è dentro.</span>
+    </summary>
+    <div class="panel__body">
+      <p class="muted">Il contenuto. I blocchi qui dentro si distanziano da soli.</p>
+    </div>
+  </details>
+
+  <pre class="code">&lt;details class="panel" open&gt;
+  &lt;summary class="panel__head"&gt;
+    &lt;span class="panel__step"&gt;1&lt;/span&gt;
+    &lt;span class="panel__title"&gt;Titolo&lt;/span&gt;
+    &lt;span class="panel__hint"&gt;Descrizione&lt;/span&gt;
+  &lt;/summary&gt;
+  &lt;div class="panel__body"&gt;…&lt;/div&gt;
+&lt;/details&gt;</pre>
+
+
+  <p class="eyebrow">Tabella di dati</p>
+
+  <p class="muted">
+    Sempre dentro <span class="mono">.table-wrap</span>, che la fa scorrere
+    dentro di sé: senza, su un telefono scorrerebbe tutta la pagina. I numeri
+    vanno in <span class="mono">.table__num</span>, che li allinea a destra e
+    li mette in monospace, così le colonne si leggono in verticale.
+  </p>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Prodotto</th>
+          <th class="table__num">Da comprare</th>
+          <th class="table__num">Costo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="table__group"><th colspan="3">Categoria</th></tr>
+        <tr>
+          <td class="table__name">Una voce</td>
+          <td class="table__num">1,9 kg</td>
+          <td class="table__num">18,03 €</td>
+        </tr>
+        <tr class="table__row--warn">
+          <td class="table__name">Voce a cui manca un dato</td>
+          <td class="table__num">—</td>
+          <td class="table__num">da definire</td>
+        </tr>
+        <tr class="table__row--sub">
+          <td colspan="2">Subtotale</td>
+          <td class="table__num">18,03 €</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="table__row--total">
+          <td colspan="2">Totale</td>
+          <td class="table__num">18,03 €</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <pre class="code">&lt;div class="table-wrap"&gt;
+  &lt;table class="table"&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;…&lt;/th&gt;&lt;th class="table__num"&gt;…&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr class="table__group"&gt;&lt;th colspan="3"&gt;Categoria&lt;/th&gt;&lt;/tr&gt;
+      &lt;tr&gt;&lt;td class="table__name"&gt;…&lt;/td&gt;&lt;td class="table__num"&gt;…&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr class="table__row--warn"&gt;…&lt;/tr&gt;   dato mancante
+      &lt;tr class="table__row--sub"&gt;…&lt;/tr&gt;    subtotale
+    &lt;/tbody&gt;
+    &lt;tfoot&gt;&lt;tr class="table__row--total"&gt;…&lt;/tr&gt;&lt;/tfoot&gt;
+  &lt;/table&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Campi dentro una tabella</p>
+
+  <p class="muted">
+    Le stesse classi della sezione «Form», con
+    <span class="mono">--compact</span> in più perché stiano in una cella.
+    <span class="mono">--num</span> allinea a destra e passa alla monospace,
+    <span class="mono">--xs</span> e <span class="mono">--sm</span> danno una
+    larghezza fissa alla colonna.
+  </p>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th><span class="visually-hidden">In lista</span></th>
+          <th>Nome</th>
+          <th class="table__num">Quantità</th>
+          <th><span class="visually-hidden">Elimina</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input class="field__check" type="checkbox" checked aria-label="In lista"></td>
+          <td><input class="field__input field__input--compact" type="text" value="Salamelle"></td>
+          <td class="table__num">
+            <input class="field__input field__input--compact field__input--num field__input--xs"
+                   type="text" value="3" aria-label="Quantità">
+            <span class="table__unit">pz</span>
+          </td>
+          <td class="table__num">
+            <button class="btn btn--icon" type="button" title="Elimina">✕</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <pre class="code">&lt;input class="field__check" type="checkbox"&gt;
+&lt;input class="field__input field__input--compact" type="text"&gt;
+&lt;input class="field__input field__input--compact field__input--num field__input--xs"&gt;
+&lt;select class="field__select field__select--compact"&gt;…&lt;/select&gt;
+&lt;span class="table__unit"&gt;pz&lt;/span&gt;
+&lt;button class="btn btn--icon" type="button"&gt;✕&lt;/button&gt;</pre>
+
+
+  <p class="eyebrow">Modulo su una riga</p>
+
+  <p class="muted">Per aggiungere una voce a una tabella, sotto alla tabella stessa.</p>
+
+  <div class="form form--inline">
+    <div class="field">
+      <label class="field__label" for="demo-riga-nome">Nome</label>
+      <input class="field__input field__input--compact" type="text" id="demo-riga-nome" placeholder="Arrosticini">
+    </div>
+    <div class="field">
+      <label class="field__label" for="demo-riga-unita">Unità</label>
+      <select class="field__select field__select--compact" id="demo-riga-unita">
+        <option>pezzi</option>
+        <option>kg</option>
+      </select>
+    </div>
+    <button class="btn" type="button">Aggiungi</button>
+  </div>
+
+  <pre class="code">&lt;div class="form form--inline"&gt;
+  &lt;div class="field"&gt;…&lt;/div&gt;
+  &lt;button class="btn" type="button"&gt;Aggiungi&lt;/button&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Riga di bottoni</p>
+
+  <p class="muted">
+    <span class="mono">.actions__gap</span> è uno spazio vuoto che spinge a
+    destra quello che viene dopo: lì va l'azione da cui non si torna indietro.
+  </p>
+
+  <div class="actions">
+    <button class="btn" type="button">Azione principale</button>
+    <button class="btn btn--ghost" type="button">Secondaria</button>
+    <span class="actions__gap"></span>
+    <button class="btn btn--ghost" type="button">Ricomincia da capo</button>
+  </div>
+
+  <pre class="code">&lt;div class="actions"&gt;
+  &lt;button class="btn" type="button"&gt;…&lt;/button&gt;
+  &lt;span class="actions__gap"&gt;&lt;/span&gt;
+  &lt;button class="btn btn--ghost" type="button"&gt;…&lt;/button&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Cursore con valore</p>
+
+  <div class="range">
+    <label class="field__label" for="demo-range">Margine di sicurezza</label>
+    <input class="range__slider" type="range" id="demo-range" min="0" max="50" step="5" value="10">
+    <span class="range__value">+10%</span>
+  </div>
+
+  <pre class="code">&lt;div class="range"&gt;
+  &lt;label class="field__label" for="x"&gt;Etichetta&lt;/label&gt;
+  &lt;input class="range__slider" type="range" id="x" min="0" max="50" step="5"&gt;
+  &lt;span class="range__value"&gt;+10%&lt;/span&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Barre di confronto</p>
+
+  <p class="muted">
+    Per far vedere come si divide un totale. La lunghezza è un dato calcolato e
+    arriva dal JavaScript nella proprietà <span class="mono">--quota</span>:
+    <span class="mono">nodo.style.setProperty("--quota", "52.3%")</span>. È il
+    solo modo di far entrare un numero nel foglio di stile senza scrivere
+    <span class="mono">style=""</span> in una pagina.
+  </p>
+
+  <div class="bars">
+    <div class="bar">
+      <div>Carne</div>
+      <div class="bar__track"><div class="bar__fill" id="demo-barra-1"></div></div>
+      <div class="bar__value">101,52 € · 52,3%</div>
+    </div>
+    <div class="bar">
+      <div>Bevande</div>
+      <div class="bar__track"><div class="bar__fill" id="demo-barra-2"></div></div>
+      <div class="bar__value">42,72 € · 22,0%</div>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="bars"&gt;
+  &lt;div class="bar"&gt;
+    &lt;div&gt;Etichetta&lt;/div&gt;
+    &lt;div class="bar__track"&gt;&lt;div class="bar__fill"&gt;&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="bar__value"&gt;101,52 € · 52,3%&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Lista con spunta</p>
+
+  <p class="muted">
+    Ogni voce è una <span class="mono">&lt;label&gt;</span>, così si spunta
+    anche cliccando il testo. La classe <span class="mono">is-done</span> la
+    barra.
+  </p>
+
+  <div class="checklist">
+    <label class="checklist__item">
+      <input class="field__check" type="checkbox">
+      <span class="checklist__text">Salamelle <span class="checklist__qty">— 38 pz ≈ 3,42 kg</span></span>
+      <span class="checklist__meta">29,07 €</span>
+    </label>
+    <label class="checklist__item is-done">
+      <input class="field__check" type="checkbox" checked>
+      <span class="checklist__text">Pane <span class="checklist__qty">— 1,9 kg</span></span>
+      <span class="checklist__meta">6,64 €</span>
+    </label>
+  </div>
+
+  <pre class="code">&lt;div class="checklist"&gt;
+  &lt;label class="checklist__item"&gt;
+    &lt;input class="field__check" type="checkbox"&gt;
+    &lt;span class="checklist__text"&gt;Nome &lt;span class="checklist__qty"&gt;— 1,9 kg&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="checklist__meta"&gt;6,64 €&lt;/span&gt;
+  &lt;/label&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Messaggio temporaneo</p>
+
+  <p class="muted">
+    Conferma un'azione senza spostare niente nella pagina. Si mostra
+    aggiungendo <span class="mono">is-on</span> e si toglie dopo un paio di
+    secondi. Va lasciato in fondo al <span class="mono">&lt;body&gt;</span> con
+    <span class="mono">role="status"</span>, così lo annunciano anche i lettori
+    di schermo.
+  </p>
+
+  <pre class="code">&lt;div class="toast" id="toast" role="status" aria-live="polite"&gt;&lt;/div&gt;
+
+nodo.textContent = "Lista copiata";
+nodo.classList.add("is-on");</pre>
+
+  <div class="actions">
+    <button class="btn btn--ghost" type="button" id="demo-toast">Fallo vedere</button>
+  </div>
+
+
+  <p class="eyebrow">Stampa</p>
+
+  <p class="muted">
+    Testata, footer e messaggi temporanei spariscono da soli. Le due classi da
+    mettere a mano sono <span class="mono">.no-print</span>, per i moduli e i
+    bottoni che sul foglio non servono, e <span class="mono">.print-only</span>,
+    per quello che ha senso solo stampato — un'intestazione con data e totale,
+    che a schermo sarebbe una ripetizione.
+  </p>
+
+  <pre class="code">&lt;details class="panel no-print"&gt;…&lt;/details&gt;
+&lt;div class="actions no-print"&gt;…&lt;/div&gt;
+&lt;p class="print-only" id="intestazione-stampa"&gt;&lt;/p&gt;</pre>
+
+
   <p class="eyebrow">Selettore di lingua</p>
 
   <p class="muted">Sta nella testata, a destra delle sezioni. Lo genera <span class="mono">layout.js</span>: in una pagina non si scrive mai a mano, sta qui solo per riferimento.</p>
@@ -241,5 +573,20 @@
 
 <site-footer></site-footer>
 
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Solo per questa pagina: le barre e il messaggio temporaneo si capiscono
+     meglio se si vedono funzionare. In una pagina vera questo lo fa il tool. -->
+<script>
+  document.getElementById("demo-barra-1").style.setProperty("--quota", "100%");
+  document.getElementById("demo-barra-2").style.setProperty("--quota", "42%");
+
+  document.getElementById("demo-toast").addEventListener("click", function () {
+    const nodo = document.getElementById("toast");
+    nodo.textContent = "Lista copiata negli appunti";
+    nodo.classList.add("is-on");
+    setTimeout(function () { nodo.classList.remove("is-on"); }, 2500);
+  });
+</script>
 </body>
 </html>

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Barbecue — Nome Cognome</title>
+  <meta name="description" content="How much to buy and what it costs for a barbecue: quantities, costs and a shopping list. All in your browser.">
+
+  <link rel="canonical" href="/en/tools/barbecue/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/grigliata/">
+  <link rel="alternate" hreflang="en" href="/en/tools/barbecue/">
+  <link rel="alternate" hreflang="x-default" href="/it/strumenti/grigliata/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<!--
+  Gli id dei campi (tab-consumi, margine, tot-spesa…) sono in italiano anche
+  qui, ed è voluto: un solo file JavaScript serve tutti e due gli alberi. Gli
+  id non li legge nessun visitatore, mentre due copie dello stesso calcolo
+  prenderebbero strade diverse alla prima modifica.
+
+  Le righe delle tabelle le costruisce grigliata.js: qui ci sono solo le
+  intestazioni, che sono testo della pagina e quindi vanno scritte nella
+  lingua della pagina.
+-->
+<main id="contenuto" class="wrap wrap--wide page">
+
+  <h1 class="title title--page">Barbecue</h1>
+  <p class="lede">
+    How much to buy and what it will cost, starting from who is coming and
+    what goes on the grill.
+  </p>
+
+  <div class="note">
+    <p>
+      The maths happens in your browser and the setup stays on this computer:
+      you can close the page and find your barbecue exactly as you left it.
+    </p>
+    <p>
+      The starting quantities and prices are a reasonable guess, not a price
+      list: put your own in and the total follows.
+    </p>
+  </div>
+
+
+  <p class="eyebrow">At a glance</p>
+
+  <div class="stats">
+    <div class="stat stat--hero">
+      <span class="stat__key">Total cost</span>
+      <span class="stat__value" id="tot-spesa">—</span>
+    </div>
+    <div class="stat stat--hero">
+      <span class="stat__key">Per person</span>
+      <span class="stat__value" id="tot-persona">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat__key">People</span>
+      <span class="stat__value" id="tot-persone">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat__key">Meat</span>
+      <span class="stat__value" id="tot-carne">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat__key">Drinks</span>
+      <span class="stat__value" id="tot-bevande">—</span>
+    </div>
+  </div>
+
+
+  <p class="eyebrow">Setup</p>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">1</span>
+      <span class="panel__title">Who is coming</span>
+      <span class="panel__hint">Groups of people who eat and drink differently.</span>
+    </summary>
+    <div class="panel__body">
+      <p class="muted">
+        The percentages say how much the group consumes compared to an adult,
+        who sits at 100%: a child eats half and drinks no alcohol, whoever is
+        driving is at zero alcohol and drinks more soft drinks.
+      </p>
+
+      <div class="table-wrap">
+        <table class="table" id="tab-gruppi">
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th class="table__num">People</th>
+              <th class="table__num">% food</th>
+              <th class="table__num">% alcohol</th>
+              <th class="table__num">% soft drinks</th>
+              <th><span class="visually-hidden">Delete</span></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--ghost" type="button" data-azione="aggiungi-gruppo">+ Add a group</button>
+      </div>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="evento-nome">Name of the occasion</label>
+          <input class="field__input field__input--compact" type="text" id="evento-nome"
+                 data-campo="evento.nome" placeholder="Saturday barbecue">
+        </div>
+        <div class="field">
+          <label class="field__label" for="evento-data">Date</label>
+          <input class="field__input field__input--compact" type="date" id="evento-data"
+                 data-campo="evento.data">
+        </div>
+      </div>
+      <p class="field__hint">These show up only in the list you copy or print.</p>
+    </div>
+  </details>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">2</span>
+      <span class="panel__title">What goes on the grill</span>
+      <span class="panel__hint">Only ticked items count towards the totals and the shopping list.</span>
+    </summary>
+    <div class="panel__body">
+      <div class="table-wrap">
+        <table class="table" id="tab-catalogo">
+          <thead>
+            <tr>
+              <th><span class="visually-hidden">On the list</span></th>
+              <th>Product</th>
+              <th>How it scales</th>
+              <th>Measured in</th>
+              <th><span class="visually-hidden">Delete</span></th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <p class="muted">
+        “Food share”, “alcohol share” and “soft-drink share” follow the group
+        percentages. “Same for everyone” just counts heads — charcoal does not
+        know who is teetotal. “Fixed amount” does not change with the number
+        of guests: one roll of foil stays one roll.
+      </p>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="nuovo-nome">New product</label>
+          <input class="field__input field__input--compact" type="text" id="nuovo-nome" placeholder="Corn on the cob">
+        </div>
+        <div class="field">
+          <label class="field__label" for="nuovo-categoria">Category</label>
+          <input class="field__input field__input--compact" type="text" id="nuovo-categoria"
+                 list="elenco-categorie" placeholder="Meat">
+        </div>
+        <div class="field">
+          <label class="field__label" for="nuovo-scala">How it scales</label>
+          <select class="field__select field__select--compact" id="nuovo-scala"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="nuovo-unita">Measured in</label>
+          <select class="field__select field__select--compact" id="nuovo-unita"></select>
+        </div>
+        <button class="btn" type="button" data-azione="aggiungi-prodotto">Add</button>
+      </div>
+      <datalist id="elenco-categorie"></datalist>
+    </div>
+  </details>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">3</span>
+      <span class="panel__title">How much one person eats and drinks</span>
+      <span class="panel__hint">One adult's share: everything else follows from it.</span>
+    </summary>
+    <div class="panel__body">
+      <div class="table-wrap">
+        <table class="table" id="tab-consumi">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="table__num">Per person</th>
+              <th>Weight of one piece</th>
+              <th class="table__num">Net total</th>
+              <th class="table__num">With margin</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <div class="range">
+        <label class="field__label" for="margine">Safety margin</label>
+        <input class="range__slider" type="range" id="margine" min="0" max="50" step="5" data-campo="margine">
+        <span class="range__value" id="margine-valore">+10%</span>
+      </div>
+      <p class="field__hint">
+        Added to every quantity that depends on the number of people, so you
+        do not run out. Fixed amounts are left alone.
+      </p>
+    </div>
+  </details>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">4</span>
+      <span class="panel__title">What it costs</span>
+      <span class="panel__hint">The price in whichever unit is on the label.</span>
+    </summary>
+    <div class="panel__body">
+      <div class="table-wrap">
+        <table class="table" id="tab-prezzi">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="table__num">Price</th>
+              <th>Given per</th>
+              <th>What the pack holds</th>
+              <th class="table__num">Unit price</th>
+              <th class="table__num">Cost</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </details>
+
+
+  <p class="eyebrow">The bill</p>
+
+  <div class="stack">
+    <div id="avvisi"></div>
+
+    <div class="bars no-print" id="barre"></div>
+
+    <div class="table-wrap">
+      <table class="table" id="tab-risultati">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="table__num">Net</th>
+            <th class="table__num">With margin</th>
+            <th class="table__num">To buy</th>
+            <th class="table__num">Cost</th>
+            <th class="table__num">Per person</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+
+  <p class="eyebrow">Who pays what</p>
+
+  <div class="stack">
+    <div class="table-wrap">
+      <table class="table" id="tab-quote">
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th class="table__num">People</th>
+            <th class="table__num">Cost of the group</th>
+            <th class="table__num">Share each</th>
+            <th class="table__num">Against the average</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p class="muted">
+      The share reflects what each group actually eats and drinks: people who
+      do not drink alcohol do not pay for the beer. The last column shows the
+      gap from the average cost per person, which is what you would get by
+      splitting the bill equally.
+    </p>
+  </div>
+
+  <p class="eyebrow">Shopping list</p>
+
+  <div class="stack">
+    <p class="muted no-print">
+      Quantities in pieces are rounded up: you cannot buy half a sausage.
+      Tick things off while you are at the counter.
+    </p>
+
+    <p class="print-only" id="intestazione-stampa"></p>
+
+    <div id="lista"></div>
+
+    <div class="actions no-print">
+      <button class="btn" type="button" data-azione="copia">Copy the list</button>
+      <button class="btn btn--ghost" type="button" data-azione="stampa">Print</button>
+      <span class="actions__gap"></span>
+      <button class="btn btn--ghost" type="button" data-azione="ripristina">Start over</button>
+    </div>
+  </div>
+
+</main>
+
+<site-footer></site-footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/assets/js/tools/grigliata.js"></script>
+</body>
+</html>
