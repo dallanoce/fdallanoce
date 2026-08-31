@@ -28,8 +28,8 @@
    -------------------------------------------------------------------------- */
 
 const SITE = {
-  name: "Nome Cognome",
-  email: "ciao@esempio.it",
+  name: "Francesco Dallanoce",
+  email: "dallanoce.fd@gmail.com",
 
   // "esatto" serve alla home: il suo indirizzo è il prefisso di tutti gli
   // altri, quindi senza questo flag risulterebbe attiva ovunque nel sito.

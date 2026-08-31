@@ -137,9 +137,11 @@ paths are absolute.
 
 ## Before going live
 
-- [ ] Replace `Nome Cognome` and `ciao@esempio.it` in `layout.js`
-- [ ] Update the name, titles and descriptions in all twelve pages
-- [ ] Fill the CV in both languages
+- [x] Replace `Nome Cognome` and `ciao@esempio.it` in `layout.js`
+- [x] Update the name, titles and descriptions in all twelve pages
+- [x] Fill the CV in both languages
+- [ ] Replace the placeholder article rows in `it/articoli/` and `en/articles/`,
+      and the one on both home pages, with real published pieces
 - [ ] Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
       files (currently commented out), or drop it
 - [ ] Verify the rates and coefficients in `calcolatore-tasse.js`

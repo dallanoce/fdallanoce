@@ -397,11 +397,13 @@ The custom domain has not been chosen yet, so the site currently lives on a
 
 ## Open TODOs
 
-- Replace the `Nome Cognome` / `ciao@esempio.it` placeholders in `layout.js` and
-  in each page's `<title>` and `<meta description>` — twelve pages, both trees
-- Fill the CV with real content, in both languages; add `assets/cv.pdf` and
-  re-enable the download link in both `cv/index.html` files (currently commented
-  out). Decide whether there is one PDF or one per language
+- Replace the placeholder article rows — one per tree in `it/articoli/` and
+  `en/articles/`, plus the featured one on both home pages. They still point at
+  `medium.com/@utente` and `dev.to/utente`; the real Medium, LinkedIn and dev.to
+  handles are not known yet
+- Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
+  files (currently commented out). Decide whether there is one PDF or one per
+  language
 - Verify and update the tax constants
 - Add a favicon
 - Choose and attach the custom domain. When it exists, make the `hreflang` and
