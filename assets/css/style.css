@@ -12,7 +12,7 @@
    1. Token          — colori, tipografia, spaziature
    2. Reset          — normalizzazione di base
    3. Layout         — contenitore e struttura pagina
-   4. Testata        — masthead, navigazione e selettore di lingua
+   4. Testata        — masthead, nav, selettore di lingua, interruttore tema
    5. Tipografia     — titoli, prose, eyebrow
    6. Indice         — righe titolo/destinazione (elemento firma del sito)
    7. Blocchi        — card, note, tag
@@ -31,17 +31,32 @@
    Cambia un token qui e cambia tutto il sito.
    ========================================================================== */
 
+/* Il tema predefinito è quello scuro: i suoi colori stanno qui, in :root,
+   perché sono quelli che valgono se nessuno tocca niente. Il tema chiaro è
+   la variante, e si attiva con l'attributo data-tema sul tag <html> — lo
+   scrive tema.js leggendo la scelta salvata, prima che il <body> venga
+   disegnato.
+
+   Il resto dei token (tipografia, spaziature, forma) non cambia con il
+   tema: sta qui una volta sola. */
+
 :root {
-  /* --- Colori: luce ------------------------------------------------------ */
-  --paper:        #F5F6F4;   /* sfondo pagina */
-  --surface:      #FFFFFF;   /* sfondo di card e campi */
-  --ink:          #191C18;   /* testo principale */
-  --ink-2:        #5C6259;   /* testo secondario */
-  --ink-3:        #8A9086;   /* metadati, testo tenue */
-  --accent:       #2C6A4A;   /* verde pino: link, stati attivi */
-  --accent-deep:  #1E4D35;   /* accento su hover */
-  --accent-soft:  #E4EDE6;   /* fondo tenue dell'accento */
-  --rule:         #DEE1DA;   /* filetti e bordi */
+  /* Dice al browser di che colore è il fondo su cui disegnare i controlli
+     di sistema: barre di scorrimento, menu a tendina aperti, campi.
+     Senza questa riga il tema lo sceglierebbe il sistema operativo, e su un
+     Mac impostato in chiaro avremmo widget chiari su una pagina scura. */
+  color-scheme: dark;
+
+  /* --- Colori: scuro (tema predefinito) ---------------------------------- */
+  --paper:        #131612;   /* sfondo pagina */
+  --surface:      #1B1F1A;   /* sfondo di card e campi */
+  --ink:          #E9ECE7;   /* testo principale */
+  --ink-2:        #A2A99E;   /* testo secondario */
+  --ink-3:        #767D72;   /* metadati, testo tenue */
+  --accent:       #7CC49B;   /* verde pino: link, stati attivi */
+  --accent-deep:  #A3DCBB;   /* accento su hover */
+  --accent-soft:  #22301F;   /* fondo tenue dell'accento */
+  --rule:         #2C3229;   /* filetti e bordi */
 
   /* --- Tipografia -------------------------------------------------------- */
   --font-ui:   "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -81,19 +96,29 @@
   --speed:     0.18s;
 }
 
-/* --- Colori: scuro (automatico, segue le preferenze di sistema) ---------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper:       #131612;
-    --surface:     #1B1F1A;
-    --ink:         #E9ECE7;
-    --ink-2:       #A2A99E;
-    --ink-3:       #767D72;
-    --accent:      #7CC49B;
-    --accent-deep: #A3DCBB;
-    --accent-soft: #22301F;
-    --rule:        #2C3229;
-  }
+/* --- Colori: chiaro ------------------------------------------------------
+
+   Si accende solo quando <html> porta data-tema="chiaro", cioè quando il
+   visitatore lo ha chiesto con l'interruttore nella testata. Ridefinisce i
+   colori e nient'altro: le altre variabili restano quelle di :root.
+
+   Non c'è nessuna @media (prefers-color-scheme): il sito parte scuro per
+   tutti, e la preferenza di sistema non entra nella decisione. Se un giorno
+   si volesse seguirla, il posto è tema.js — non questo file, perché la
+   scelta salvata deve comunque poterla scavalcare. */
+
+:root[data-tema="chiaro"] {
+  color-scheme: light;
+
+  --paper:        #F5F6F4;
+  --surface:      #FFFFFF;
+  --ink:          #191C18;
+  --ink-2:        #5C6259;
+  --ink-3:        #8A9086;
+  --accent:       #2C6A4A;
+  --accent-deep:  #1E4D35;
+  --accent-soft:  #E4EDE6;
+  --rule:         #DEE1DA;
 }
 
 
@@ -286,6 +311,65 @@ a:hover { color: var(--accent-deep); }
   background: var(--surface);
   color: var(--ink);
 }
+
+/* --- Interruttore del tema ------------------------------------------------
+
+   Un <button> con role="switch": è acceso o spento, e il browser lo annuncia
+   già così ai lettori di schermo. Un <select> con due voci, come quello della
+   lingua, qui sarebbe stato di troppo — due stati si cambiano con un clic, non
+   aprendo un menu.
+
+   Lo stato vive in un solo posto, l'attributo aria-checked, che serve sia
+   all'accessibilità sia al CSS qui sotto per spostare il pallino. Nessuna
+   classe "is-on" da tenere in sincrono con l'attributo.
+
+   Il sole e la luna sono due caratteri, non due immagini, per lo stesso motivo
+   della freccina del selettore di lingua: prendono il colore dal testo e
+   restano giusti in tutti e due i temi. Li scrive layout.js, che dopo il sole
+   aggiunge U+FE0E, il carattere invisibile che impone il disegno testuale:
+   senza, alcuni sistemi lo trasformano in un'emoji a colori. */
+
+.temaswitch {
+  position: relative;
+  flex: none;
+  align-self: center;   /* la testata allinea alla linea di base, il pallino no */
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 46px;
+  height: 24px;
+  padding-inline: var(--s-1);
+
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;   /* pillola: raggio più alto dell'altezza */
+  cursor: pointer;
+  transition: border-color var(--speed) ease;
+}
+.temaswitch:hover { border-color: var(--ink-3); }
+
+.temaswitch__icona {
+  font-size: var(--t-xs);
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+/* Il pallino copre l'icona del tema attivo. Le misure sono legate fra loro:
+   18 di pallino + 2 di margine sopra e sotto riempiono i 22 interni, e la
+   corsa di 22 lo porta dall'altra parte con lo stesso margine. */
+.temaswitch__pallino {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform var(--speed) ease;
+}
+.temaswitch[aria-checked="true"] .temaswitch__pallino { transform: translateX(22px); }
 
 /* Sugli schermi stretti la testata è la riga più affollata del sito:
    si stringono le distanze prima di lasciarla andare a capo. */
@@ -1004,7 +1088,37 @@ a:hover { color: var(--accent-deep); }
 
 .print-only { display: none; }
 
+/* La carta è bianca, e il tema scuro è quello predefinito: senza questo
+   blocco chi stampa una lista della spesa dal tool ottiene un foglio quasi
+   vuoto, perché il browser stampa il colore del testo ma non gli sfondi.
+
+   Non sono i colori del tema chiaro: quelli servono a leggere su uno
+   schermo, questi a non sprecare toner. Nero su bianco, grigi al posto del
+   verde, filetti più tenui. È il terzo posto in cui i token dei colori sono
+   definiti, ed è l'ultimo — se ne aggiungi uno, ricordati anche qui.
+
+   I due selettori non sono una ripetizione. Il solo :root vale 0,1,0 e
+   perderebbe contro :root[data-tema="chiaro"], che vale 0,2,0: chi stampa
+   dal tema chiaro si porterebbe dietro i suoi colori invece di questi.
+   Ripetuto con l'attributo pareggia la specificità e vince perché viene
+   dopo. Serve anche il :root nudo, per chi ha JavaScript disattivato e
+   quindi non ha nessun attributo sul tag <html>. */
 @media print {
+  :root,
+  :root[data-tema="chiaro"] {
+    color-scheme: light;
+
+    --paper:        #FFFFFF;
+    --surface:      #FFFFFF;
+    --ink:          #000000;
+    --ink-2:        #333333;
+    --ink-3:        #555555;
+    --accent:       #000000;
+    --accent-deep:  #000000;
+    --accent-soft:  #F0F0F0;
+    --rule:         #AAAAAA;
+  }
+
   .masthead, .footer, .skip, .toast, .no-print { display: none !important; }
   .print-only { display: block; }
 

@@ -68,8 +68,9 @@ reasoning when it is not obvious.
 └── assets/
     ├── css/style.css              the entire stylesheet
     └── js/
+        ├── tema.js                light/dark theme; loaded first, before i18n.js
         ├── i18n.js                page language + JS strings; loaded before layout.js
-        ├── layout.js              shared header, footer and language switcher
+        ├── layout.js              shared header, footer, language switcher, theme switch
         └── tools/                 per-tool logic, one file each, shared by both trees
 ```
 
@@ -85,8 +86,10 @@ structure rather than by discipline. Preserve all four.
 Every colour, font size, spacing step and radius is a CSS custom property defined
 in `:root` at the top of `style.css`. Pages must never contain a hex value, a
 `px` value, or a `style=""` attribute. If a new value is needed, add a token —
-do not inline it. Dark mode works automatically via `prefers-color-scheme` and
-only because everything reads from tokens; hardcoding a colour breaks it.
+do not inline it. **A new colour token must be defined twice**: in `:root` (dark,
+the default) and in `:root[data-tema="chiaro"]` (light). Theme switching works
+only because everything reads from tokens; one hardcoded colour is one element
+that stays the wrong colour in one of the two themes.
 
 **2. Header and footer are components.**
 Every page writes `<site-header></site-header>` and `<site-footer></site-footer>`.
@@ -171,6 +174,45 @@ in `SITE.nav` in `layout.js`, a third tree of pages, and a third `hreflang` on
 every existing page. The last one is the expensive part, and it is a reason to
 stop at two.
 
+## Two themes
+
+Dark is the default and light is the variant, and that asymmetry is written into
+the CSS: `:root` holds the dark values, `:root[data-tema="chiaro"]` overrides the
+colour tokens with the light ones. Nothing else changes between the two — the
+type scale, the spacing and the radii are theme-independent and are declared once.
+
+**The theme in use lives in one place**, the `data-tema` attribute on `<html>`,
+exactly the way the language lives in `<html lang>`. The CSS reads it, `tema.js`
+reads it back, and the switch's `aria-checked` is derived from it. The attribute
+is always written, even for the default, so there is no second rule to remember.
+
+**`prefers-color-scheme` is not consulted.** The site opens dark for everybody,
+including a visitor whose machine is set to light. That is deliberate, not an
+oversight: the old `@media (prefers-color-scheme: dark)` block was removed when
+the switch was added. To follow the system preference again, the place to change
+is `temaIniziale()` in `tema.js` — not the stylesheet, because the saved choice
+has to keep the last word either way.
+
+**`color-scheme` is set alongside each palette** so the browser draws its own
+widgets — scrollbars, the open language dropdown, form controls — on the right
+kind of background. Without it a Mac set to light would paint light scrollbars
+onto the dark page.
+
+**`tema.js` loads first, and never deferred.** It writes the attribute while the
+`<head>` is being parsed, before the `<body>` exists. Deferred, or at the end of
+the body, a visitor who chose light would see the page painted dark and then
+flip. The script order on every page is `tema.js`, `i18n.js`, `layout.js`.
+
+**The switch is rendered by `layout.js`**, at the right end of the masthead after
+the language switcher. Unlike the language switcher it appears on every page:
+it depends on nothing the page has to declare, so `/stile/` and `404.html` have
+it too. It is a `<button role="switch">` and its state is `aria-checked`, which
+is both what a screen reader announces and what the CSS reads to place the knob —
+there is no `is-on` class to keep in sync with the truth.
+
+**Changing theme does not navigate.** The colours are custom properties: the
+attribute changes and the page repaints. Only the language switcher reloads.
+
 ## Recipes
 
 ### Add a page
@@ -241,8 +283,10 @@ Written down so future changes do not drift.
   paths and numbers. Space Grotesk is used for body copy too, which works here
   because body copy on this site is always short — the long-form writing lives
   on external platforms.
-- **Colour.** Cool off-white paper, near-black ink with a green undertone, pine
-  green accent. Light and dark variants both defined in `:root`.
+- **Colour.** Near-black paper with a green undertone, off-white ink, pine green
+  accent — that is the default, dark. The light theme is the same palette turned
+  over: cool off-white paper, near-black ink. Both are defined in `style.css`,
+  dark in `:root` and light in `:root[data-tema="chiaro"]`.
 - **Motion.** Minimal and deliberate: one micro-interaction, the accent bar that
   scales in on `.index__row` hover. Do not scatter more animation around.
   `prefers-reduced-motion` is respected globally.
@@ -257,13 +301,18 @@ Written down so future changes do not drift.
   top-level `const` with the same name — that is a `SyntaxError` that kills the
   whole page, not a warning. This is why the code writes `I18N.t(...)` in full
   instead of aliasing it to a short `t` in each file. Watch for it whenever you
-  add a tool: `i18n.js`, `layout.js` and the tool's file are all loaded together.
-  `LINGUE`, `LINGUA_PREDEFINITA`, `CHIAVE_LINGUA`, `I18N` and `SITE` are taken.
-- **`i18n.js` must load before `layout.js`,** and neither may be deferred.
-  `layout.js` reads `I18N.lingua` and `I18N.alternativa()` while building the
-  header. Both sit in `<head>` without `defer` so the custom elements are defined
-  before `<body>` is parsed and the header never flashes. The files are tiny; the
-  blocking cost is negligible.
+  add a tool: `tema.js`, `i18n.js`, `layout.js` and the tool's file are all
+  loaded together. `LINGUE`, `LINGUA_PREDEFINITA`, `CHIAVE_LINGUA`, `I18N`,
+  `SITE`, `TEMI`, `TEMA_PREDEFINITO`, `CHIAVE_TEMA` and `TEMA` are taken.
+  **Function names collide too, and more quietly:** a second `function
+  leggiScelta()` does not throw, it silently replaces the first. That is why
+  `tema.js` calls its own pair `leggiTema` / `scriviTema`.
+- **The three scripts load in order — `tema.js`, `i18n.js`, `layout.js` — and
+  none may be deferred.** `layout.js` reads `I18N.lingua`, `I18N.alternativa()`
+  and `TEMA.scuro` while building the header; `tema.js` has to write `data-tema`
+  before the first paint. All three sit in `<head>` without `defer` so the custom
+  elements are defined before `<body>` is parsed and neither the header nor the
+  theme flashes. The files are tiny; the blocking cost is negligible.
 - **`i18n.js` does not care where it sits relative to the `hreflang` tags,**
   because `I18N.alternativa()` is a function called after the body is parsed, not
   a value read at load time. Do not "optimise" it into a property.
@@ -286,6 +335,15 @@ Written down so future changes do not drift.
   Pages does serve it. To test it locally, open `/404.html` directly — note that
   it will pick its language from the browser, since the path has no `/it/` or
   `/en/` prefix to read.
+- **The print palette needs both selectors.** `@media print` redefines the
+  colour tokens (black on white, greys instead of green: the paper is white and
+  browsers print text colour but not backgrounds). It is written
+  `:root, :root[data-tema="chiaro"]` because a plain `:root` is 0,1,0 and would
+  lose to the light theme's `:root[data-tema="chiaro"]` at 0,2,0 — someone
+  printing from the light theme would get screen colours. The bare `:root` is
+  still needed for a visitor with JavaScript off, who has no attribute at all.
+- **A new colour token has to be added in three places:** `:root` (dark),
+  `:root[data-tema="chiaro"]` (light) and the `@media print` block.
 - **CSS specificity trap in `.prose`.** Vertical rhythm comes from
   `.prose > * + * { margin-top }` (specificity 0,1,0). Adding a type-based reset
   like `.prose p { margin: 0 }` (0,1,1) silently wins and collapses the spacing.
@@ -331,10 +389,11 @@ The custom domain has not been chosen yet, so the site currently lives on a
 - No `style=""` attributes and no raw hex or `px` values in any HTML file
 - Every class used in HTML exists in `style.css`
 - Internal links resolve (`folder/` must have an `index.html`)
-- New page includes `style.css`, `i18n.js`, `layout.js`, `<site-header>` and
-  `<site-footer>`, with `i18n.js` before `layout.js` and neither deferred
+- New page includes `style.css`, `tema.js`, `i18n.js`, `layout.js`,
+  `<site-header>` and `<site-footer>`, with the three scripts in that order and
+  none of them deferred
 - New reusable component is documented in `/stile/`
-- Checked at a narrow viewport; keyboard focus is visible
+- Checked at a narrow viewport, in **both themes**; keyboard focus is visible
 
 ## Open TODOs
 

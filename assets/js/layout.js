@@ -10,8 +10,9 @@
    definiti quando il browser legge il <body> e la testata compare
    immediatamente, senza sfarfallio.
 
-   Va caricato DOPO i18n.js, da cui usa I18N.lingua e I18N.alternativa()
-   per costruire il menu nella lingua giusta.
+   Va caricato DOPO i18n.js e tema.js: dal primo usa I18N.lingua e
+   I18N.alternativa() per costruire il menu nella lingua giusta, dal secondo
+   TEMA.corrente per disegnare l'interruttore già nella posizione giusta.
 
    Non usa Shadow DOM di proposito, così il markup generato eredita
    normalmente le classi di style.css.
@@ -30,13 +31,17 @@ const SITE = {
   name: "Nome Cognome",
   email: "ciao@esempio.it",
 
+  // "esatto" serve alla home: il suo indirizzo è il prefisso di tutti gli
+  // altri, quindi senza questo flag risulterebbe attiva ovunque nel sito.
   nav: {
     it: [
+      { href: "/it/",           label: "Home", esatto: true },
       { href: "/it/cv/",        label: "CV" },
       { href: "/it/articoli/",  label: "Articoli" },
       { href: "/it/strumenti/", label: "Tool" },
     ],
     en: [
+      { href: "/en/",          label: "Home", esatto: true },
       { href: "/en/cv/",       label: "CV" },
       { href: "/en/articles/", label: "Articles" },
       { href: "/en/tools/",    label: "Tools" },
@@ -57,7 +62,12 @@ class SiteHeader extends HTMLElement {
 
     const links = voci.map((item) => {
       // Una voce è attiva se siamo nella sua sezione o in una pagina figlia.
-      const active = path === item.href || path.startsWith(item.href);
+      // Quelle marcate "esatto" (la home) si accendono solo sul loro
+      // indirizzo preciso: attive per prefisso lo sarebbero sempre, e due
+      // voci con aria-current="page" insieme sono un errore, non un dettaglio.
+      const active = item.esatto
+        ? path === item.href
+        : path === item.href || path.startsWith(item.href);
       return `<a class="nav__link${active ? " is-active" : ""}"
                  href="${item.href}"
                  ${active ? 'aria-current="page"' : ""}>${item.label}</a>`;
@@ -77,11 +87,13 @@ class SiteHeader extends HTMLElement {
               en: "Site sections",
             })}">${links}</nav>
             ${this.selettoreLingua(lingua)}
+            ${this.interruttoreTema()}
           </div>
         </div>
       </header>`;
 
     this.attivaSelettore();
+    this.attivaInterruttore();
   }
 
   /* Il menu a tendina delle lingue.
@@ -109,6 +121,52 @@ class SiteHeader extends HTMLElement {
           ${opzioni}
         </select>
       </div>`;
+  }
+
+  /* L'interruttore chiaro/scuro.
+
+     È un <button role="switch">: acceso o spento, un clic per cambiare. Il
+     <select> della lingua accanto sembra il fratello ovvio, ma qui sarebbe
+     stato peggio — aprire un menu per scegliere fra due cose che si vedono
+     già disegnate sull'interruttore.
+
+     A differenza del selettore di lingua, questo c'è su tutte le pagine:
+     non dipende da niente che la pagina debba dichiarare.
+
+     Le due icone sono scritte come codici (\u2600 sole, \u263E luna) invece
+     che come caratteri: \uFE0E dopo il sole è il selettore di variante che
+     impone il disegno testuale, e appiccicato al carattere vero sarebbe
+     invisibile in questo file — cioè una riga che sembra sbagliata e non lo
+     è. Sono caratteri e non immagini perché così prendono il colore dal
+     testo e restano giusti in tutti e due i temi. */
+  interruttoreTema() {
+    const scuro = TEMA.scuro;
+
+    return `
+      <button class="temaswitch" type="button" role="switch"
+              id="interruttore-tema"
+              aria-checked="${scuro}"
+              aria-label="${I18N.t({ it: "Tema scuro", en: "Dark theme" })}">
+        <span class="temaswitch__icona" aria-hidden="true">\u2600\uFE0E</span>
+        <span class="temaswitch__icona" aria-hidden="true">\u263E</span>
+        <span class="temaswitch__pallino" aria-hidden="true"></span>
+      </button>`;
+  }
+
+  /* Cambiare tema non ricarica niente: i colori sono variabili CSS, cambia
+     l'attributo su <html> e la pagina si ridisegna da sola.
+
+     aria-checked non è solo per i lettori di schermo: è anche quello che il
+     CSS guarda per spostare il pallino. Un solo attributo da aggiornare,
+     nessuna classe da tenere in sincrono con lo stato vero. */
+  attivaInterruttore() {
+    const bottone = this.querySelector("#interruttore-tema");
+    if (!bottone) return;
+
+    bottone.addEventListener("click", () => {
+      TEMA.alterna();
+      bottone.setAttribute("aria-checked", String(TEMA.scuro));
+    });
   }
 
   /* Cambiare lingua ricarica la pagina gemella. Non è uno scambio di testo

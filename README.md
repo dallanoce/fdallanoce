@@ -34,8 +34,9 @@ documentation is in English.
 └── assets/                        shared by both trees, never duplicated
     ├── css/style.css              the entire stylesheet
     └── js/
+        ├── tema.js                light/dark theme, loaded first
         ├── i18n.js                page language and JS strings
-        ├── layout.js              shared header, footer and language switcher
+        ├── layout.js              header, footer, language switcher, theme switch
         └── tools/                 per-tool logic
 ```
 
@@ -77,6 +78,19 @@ simply shows no switcher, which is what `/stile/` does.
 
 **The cost of this design:** editing a page means editing two files. Nothing
 enforces it. That is the thing to watch when changing content.
+
+## Light and dark
+
+The site is dark by default and has a switch at the right end of the header. The
+theme in use is the `data-tema` attribute on `<html>`: `style.css` defines the
+dark colours in `:root` and overrides them in `:root[data-tema="chiaro"]`, and
+`tema.js` writes the attribute from the choice saved in `localStorage` — first
+thing in the `<head>`, so a visitor who picked light never sees a dark flash.
+
+The system preference is deliberately not consulted: everyone starts dark until
+they say otherwise. Because every colour in the stylesheet is a token, adding a
+component means picking existing tokens and getting both themes for free; writing
+a literal colour anywhere means one element stuck in the wrong theme.
 
 ## Adding a page
 
@@ -137,7 +151,7 @@ paths are absolute.
 
 See [`.claude/CLAUDE.md`](.claude/CLAUDE.md). It documents the design direction,
 the constraints behind these choices, and the traps worth knowing about before
-changing anything — why `i18n.js` must load before `layout.js` and neither may be
-deferred, why every JS file shares one global scope, the CSS specificity pitfall
-in `.prose`, and what the tax constants actually are. Written for Claude Code,
-useful to any human picking the repo back up after a few months.
+changing anything — why `tema.js`, `i18n.js` and `layout.js` load in that order
+and none may be deferred, why every JS file shares one global scope, the CSS
+specificity pitfall in `.prose`, and what the tax constants actually are. Written
+for Claude Code, useful to any human picking the repo back up after a few months.

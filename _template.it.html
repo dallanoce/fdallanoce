@@ -18,7 +18,8 @@
   causa è quasi sempre un hreflang sbagliato o mancante.
 
   Non toccare il resto del <head>: i percorsi sono assoluti e funzionano da
-  qualsiasi profondità di cartella, e i18n.js deve stare prima di layout.js.
+  qualsiasi profondità di cartella, e i tre script vanno in quest'ordine —
+  tema.js, i18n.js, layout.js — perché l'ultimo usa i primi due.
 -->
 <!doctype html>
 <html lang="it">
@@ -38,6 +39,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
   <script src="/assets/js/i18n.js"></script>
   <script src="/assets/js/layout.js"></script>
 </head>

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
   <script src="/assets/js/i18n.js"></script>
   <script src="/assets/js/layout.js"></script>
 </head>
@@ -555,6 +556,38 @@ nodo.classList.add("is-on");</pre>
   </div>
 
 
+  <p class="eyebrow">Interruttore del tema</p>
+
+  <p class="muted">
+    Sta nella testata, all'estrema destra, ed è quello che vedi qui sopra:
+    a differenza del selettore di lingua, questo c'è su tutte le pagine,
+    quindi anche su questa. Provalo da lì — un secondo interruttore finto qui
+    in mezzo alla pagina si sarebbe soltanto scordato di essere d'accordo con
+    quello vero.
+  </p>
+
+  <p class="muted">
+    Lo genera <span class="mono">layout.js</span>: in una pagina non si scrive
+    mai a mano, il markup sta qui solo per riferimento. Lo stato è tutto
+    nell'attributo <span class="mono">aria-checked</span>, che serve insieme ai
+    lettori di schermo e al CSS, che da lì decide da che parte sta il pallino.
+  </p>
+
+  <p class="muted">
+    Dopo il sole, nel markup qui sotto, c'è un carattere invisibile
+    (<span class="mono">U+FE0E</span>): impone il disegno testuale, altrimenti
+    su alcuni sistemi diventa un'emoji a colori. Se copi la riga, copiala
+    intera.
+  </p>
+
+  <pre class="code">&lt;button class="temaswitch" type="button" role="switch"
+        aria-checked="true" aria-label="Tema scuro"&gt;
+  &lt;span class="temaswitch__icona" aria-hidden="true"&gt;☀︎&lt;/span&gt;
+  &lt;span class="temaswitch__icona" aria-hidden="true"&gt;☾&lt;/span&gt;
+  &lt;span class="temaswitch__pallino" aria-hidden="true"&gt;&lt;/span&gt;
+&lt;/button&gt;</pre>
+
+
   <p class="eyebrow">Colori</p>
 
   <div class="prose">
@@ -566,7 +599,8 @@ nodo.classList.add("is-on");</pre>
       <li><span class="mono">--rule</span> filetti e bordi</li>
       <li><span class="mono">--paper</span> / <span class="mono">--surface</span> sfondi</li>
     </ul>
-    <p>Il tema scuro è automatico: segue le impostazioni del sistema operativo. Non serve fare niente, basta usare i token invece dei colori fissi.</p>
+    <p>Ogni colore è un token, e ogni token è definito due volte: in <span class="mono">:root</span> per il tema scuro, che è quello predefinito, e in <span class="mono">:root[data-tema="chiaro"]</span> per il chiaro. Un colore fisso scritto in una pagina è un pezzo che non cambia tema insieme al resto: è il motivo per cui la regola esiste.</p>
+    <p>Il sito parte scuro per tutti, anche per chi ha il sistema operativo in chiaro: la preferenza di sistema non viene consultata. Decide l'interruttore nella testata, e la scelta resta salvata su questo dispositivo.</p>
   </div>
 
 </main>
