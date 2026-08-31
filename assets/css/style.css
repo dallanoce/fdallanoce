@@ -527,6 +527,22 @@ a:hover { color: var(--accent-deep); }
    7. BLOCCHI
    ========================================================================== */
 
+/* Ritratto dell'autore, in home sotto il titolo.
+   Larghezza fissa e aspect-ratio quadrato: lo spazio è già occupato prima
+   che il file arrivi, quindi il testo sotto non salta quando la foto si
+   carica. È per questo che qui non servono gli attributi width/height nel
+   markup. object-fit ritaglia invece di deformare, se un giorno la foto
+   non fosse più quadrata. */
+.portrait {
+  display: block;
+  width: 7.5rem;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--rule);
+  margin: 0 0 var(--s-5);
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--rule);
