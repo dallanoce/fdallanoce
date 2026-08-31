@@ -51,6 +51,17 @@
     <div class="entry__body">
       <ul>
         <li>
+          <strong>Migrazione della documentazione con GenAI</strong> (GCP):
+          pipeline multi-agente in LangGraph, su GCP, che
+          riconcilia la documentazione del data lake divisa tra Atlan e
+          Confluence. Un retriever RAG ibrido (BM25 e embedding su ChromaDB,
+          fusi con RRF pesato) recupera il contesto di business corretto per
+          ogni asset; pi&ugrave; agenti LLM in parallelo lo trasformano in
+          descrizioni arricchite e documentazione a livello di colonna,
+          validate contro uno schema Pydantic rigido e messe in coda per la
+          revisione umana.
+        </li>
+        <li>
           <strong>Next Best Action Engine</strong> (GCP): sistema di
           raccomandazione basato su algoritmi Learning to Rank per la home
           dell&rsquo;app mobile. Ordina dinamicamente card di natura diversa
@@ -174,6 +185,7 @@
   <div class="tags">
     <span class="tag">Machine Learning e Deep Learning</span>
     <span class="tag">NLP e LLM</span>
+    <span class="tag">GenAI, RAG e sistemi multi-agente</span>
     <span class="tag">Modelli predittivi e churn analysis</span>
     <span class="tag">Recommender system</span>
     <span class="tag">Pipeline ML end-to-end</span>
@@ -187,6 +199,7 @@
     <span class="tag">SQL</span>
     <span class="tag">GCP (Vertex AI, BigQuery)</span>
     <span class="tag">AWS (SageMaker, Lambda)</span>
+    <span class="tag">Azure OpenAI</span>
     <span class="tag">Airflow</span>
     <span class="tag">Docker</span>
     <span class="tag">Git</span>
@@ -196,7 +209,10 @@
     <span class="tag">LightGBM</span>
     <span class="tag">TensorFlow</span>
     <span class="tag">Keras</span>
+    <span class="tag">LangGraph</span>
+    <span class="tag">Pydantic</span>
     <span class="tag">Neo4j</span>
+    <span class="tag">ChromaDB</span>
     <span class="tag">Power BI</span>
     <span class="tag">Looker</span>
     <span class="tag">Tableau</span>

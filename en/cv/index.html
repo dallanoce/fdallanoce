@@ -51,6 +51,16 @@
     <div class="entry__body">
       <ul>
         <li>
+          <strong>GenAI documentation migration</strong> (GCP): a LangGraph
+          multi-agent pipeline running on GCP that reconciles
+          data-lake documentation split across Atlan and Confluence. A hybrid
+          RAG retriever (BM25 plus ChromaDB embeddings, fused via weighted RRF)
+          surfaces the right business context for each asset, which multiple
+          parallel LLM agents turn into enriched descriptions and column-level
+          docs, validated against a strict Pydantic schema and staged for human
+          review.
+        </li>
+        <li>
           <strong>Next Best Action Engine</strong> (GCP): a recommender system
           built on Learning to Rank algorithms, powering the mobile app
           homepage. It dynamically sorts mixed-content cards &mdash; offers,
@@ -171,6 +181,7 @@
   <div class="tags">
     <span class="tag">Machine Learning and Deep Learning</span>
     <span class="tag">NLP and LLMs</span>
+    <span class="tag">GenAI, RAG and multi-agent systems</span>
     <span class="tag">Predictive modelling and churn analysis</span>
     <span class="tag">Recommender systems</span>
     <span class="tag">End-to-end ML pipelines</span>
@@ -184,6 +195,7 @@
     <span class="tag">SQL</span>
     <span class="tag">GCP (Vertex AI, BigQuery)</span>
     <span class="tag">AWS (SageMaker, Lambda)</span>
+    <span class="tag">Azure OpenAI</span>
     <span class="tag">Airflow</span>
     <span class="tag">Docker</span>
     <span class="tag">Git</span>
@@ -193,7 +205,10 @@
     <span class="tag">LightGBM</span>
     <span class="tag">TensorFlow</span>
     <span class="tag">Keras</span>
+    <span class="tag">LangGraph</span>
+    <span class="tag">Pydantic</span>
     <span class="tag">Neo4j</span>
+    <span class="tag">ChromaDB</span>
     <span class="tag">Power BI</span>
     <span class="tag">Looker</span>
     <span class="tag">Tableau</span>
