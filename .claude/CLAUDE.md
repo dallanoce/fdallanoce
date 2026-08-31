@@ -397,10 +397,12 @@ The custom domain has not been chosen yet, so the site currently lives on a
 
 ## Open TODOs
 
-- Replace the placeholder article rows — one per tree in `it/articoli/` and
-  `en/articles/`, plus the featured one on both home pages. They still point at
-  `medium.com/@utente` and `dev.to/utente`; the real Medium, LinkedIn and dev.to
-  handles are not known yet
+- The article rows are real: the four Medium pieces from
+  `medium.com/@dallanoce.fd`, listed in both trees and the two most recent
+  featured on both home pages. Two of them sit under `medium.com/data-science`
+  (the old Towards Data Science), which is why some hrefs are not `/@dallanoce.fd`.
+  If anything is ever published on LinkedIn or dev.to it goes in the same way —
+  those handles are still unknown
 - Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
   files (currently commented out). Decide whether there is one PDF or one per
   language
