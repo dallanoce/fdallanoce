@@ -38,7 +38,7 @@ const SITE = {
       { href: "/it/",           label: "Home", esatto: true },
       { href: "/it/cv/",        label: "CV" },
       { href: "/it/articoli/",  label: "Articoli" },
-      { href: "/it/strumenti/", label: "Tool" },
+      { href: "/it/strumenti/", label: "Tools" },
     ],
     en: [
       { href: "/en/",          label: "Home", esatto: true },
