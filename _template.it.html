@@ -17,6 +17,13 @@
   può cambiare lingua. Se il selettore non compare su una pagina nuova, la
   causa è quasi sempre un hreflang sbagliato o mancante.
 
+  ATTENZIONE A X-DEFAULT
+  Punta alla gemella inglese, non a questa pagina. Dice ai motori di ricerca
+  quale versione servire a chi non corrisponde a nessuna lingua, e la
+  risposta è sempre l'inglese, che è la lingua predefinita del sito. Non è
+  un copia-incolla sbagliato: nel template inglese i due indirizzi
+  coincidono, qui no.
+
   Non toccare il resto del <head>: i percorsi sono assoluti e funzionano da
   qualsiasi profondità di cartella, e i tre script vanno in quest'ordine —
   tema.js, i18n.js, layout.js — perché l'ultimo usa i primi due.
@@ -33,7 +40,7 @@
   <link rel="canonical" href="/it/percorso/della/pagina/">
   <link rel="alternate" hreflang="it" href="/it/percorso/della/pagina/">
   <link rel="alternate" hreflang="en" href="/en/path/to/page/">
-  <link rel="alternate" hreflang="x-default" href="/it/percorso/della/pagina/">
+  <link rel="alternate" hreflang="x-default" href="/en/path/to/page/">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

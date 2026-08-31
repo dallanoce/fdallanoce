@@ -5,10 +5,10 @@
   Le uniche differenze sono <html lang="en">, il testo, e il canonical che
   punta a questa versione invece che a quella italiana.
 
-  Attenzione a x-default: resta sull'italiano anche qui. Dice ai motori di
-  ricerca quale versione servire a chi non corrisponde a nessuna lingua, e
-  la risposta è sempre la stessa — l'italiano è la lingua di partenza del
-  sito. Non è un copia-incolla sbagliato.
+  Attenzione a x-default: punta a questa pagina, la versione inglese, e la
+  stessa cosa vale nel template italiano. Dice ai motori di ricerca quale
+  versione servire a chi non corrisponde a nessuna lingua, e la risposta è
+  sempre la stessa — l'inglese è la lingua predefinita del sito.
 -->
 <!doctype html>
 <html lang="en">
@@ -22,7 +22,7 @@
   <link rel="canonical" href="/en/path/to/page/">
   <link rel="alternate" hreflang="it" href="/it/percorso/della/pagina/">
   <link rel="alternate" hreflang="en" href="/en/path/to/page/">
-  <link rel="alternate" hreflang="x-default" href="/it/percorso/della/pagina/">
+  <link rel="alternate" hreflang="x-default" href="/en/path/to/page/">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -110,8 +110,12 @@ one-off styles.
 
 ## Two languages
 
-Italian is the source language: it is what `x-default` points at, what the router
-falls back to, and what a visitor gets when nothing else is known.
+**English is the default language**: it is what `x-default` points at, what the
+router falls back to, and what a visitor gets when nothing else is known. Italian
+is still the *source* language — pages are drafted in Italian first and the code
+comments are Italian — but that is an authoring convention, not what an unknown
+visitor is served. The default lives in exactly two places: `LINGUA_PREDEFINITA`
+in `i18n.js`, and the `x-default` tag on every page.
 
 **The shape of it.** A page's text is written directly in that page's language.
 There is no runtime text swapping, no hidden twin elements, no flash of the wrong
@@ -154,7 +158,7 @@ to a 404. If the switcher is missing from a new page, the cause is almost always
 a missing or wrong `hreflang`.
 
 **Arriving at `/`.** The root `index.html` has no content: it reads the saved
-choice, then `navigator.language`, then falls back to Italian, and
+choice, then `navigator.language`, then falls back to English, and
 `location.replace()`s into the right tree. `replace` and not `href` so the back
 button leaves the site instead of bouncing back into the router. Its `<body>` is a
 plain two-link language chooser, which is what a visitor without JavaScript gets.
@@ -220,7 +224,7 @@ attribute changes and the page repaints. Only the language switcher reloads.
 3. In **both**: update `<title>` and `<meta name="description">`, and fix the four
    language links — `canonical` points at the page itself, the two `alternate`
    tags point at the Italian and English versions, and `x-default` always points
-   at the **Italian** one
+   at the **English** one
 4. Write the body using classes from `/stile/`
 5. Link it from the relevant index page **in both trees** — the link text and the
    path in `.index__meta` are both language-specific
@@ -314,9 +318,11 @@ Written down so future changes do not drift.
 - **`i18n.js` does not care where it sits relative to the `hreflang` tags,**
   because `I18N.alternativa()` is a function called after the body is parsed, not
   a value read at load time. Do not "optimise" it into a property.
-- **`x-default` always points at the Italian page,** in the English files too.
-  It tells search engines what to serve someone who matches no language, and the
-  answer is always Italian. It is not a copy-paste mistake.
+- **`x-default` always points at the English page,** in the Italian files too —
+  so in an English page it repeats the `hreflang="en"` URL, and in its Italian
+  twin it points away from the page it sits on. It tells search engines what to
+  serve someone who matches no language, and the answer is always English. It is
+  not a copy-paste mistake.
 - **The `hreflang` and `canonical` URLs are root-relative** (`/en/cv/`), because
   the custom domain has not been chosen. The switcher works fine with these.
   Google, however, wants fully-qualified `hreflang` URLs — see the TODOs.
@@ -379,7 +385,7 @@ The custom domain has not been chosen yet, so the site currently lives on a
 - Both pages were actually opened, and the switcher moves between them (not to
   the home page — that means a wrong `hreflang`)
 - `canonical` points at the page itself; the two `alternate` tags point at each
-  other; `x-default` points at the Italian page
+  other; `x-default` points at the English page
 - No `style=""` attributes and no raw hex or `px` values in any HTML file
 - Every class used in HTML exists in `style.css`
 - Internal links resolve (`folder/` must have an `index.html`)

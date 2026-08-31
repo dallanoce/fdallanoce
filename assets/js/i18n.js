@@ -48,7 +48,7 @@ const LINGUE = {
   en: { nome: "English",  breve: "EN", locale: "en-IE", radice: "/en/" },
 };
 
-const LINGUA_PREDEFINITA = "it";   // l'italiano è la lingua di partenza
+const LINGUA_PREDEFINITA = "en";   // l'inglese è la lingua servita per difetto
 const CHIAVE_LINGUA = "lingua";    // dove il selettore salva la scelta
 
 
@@ -85,7 +85,7 @@ function scriviScelta(lingua) {
 const I18N = {
 
   /* La lingua di questa pagina, presa da <html lang>.
-     Una lingua che non conosciamo ricade sull'italiano. */
+     Una lingua che non conosciamo ricade sulla predefinita, l'inglese. */
   get lingua() {
     const dichiarata = document.documentElement.lang;
     return LINGUE[dichiarata] ? dichiarata : LINGUA_PREDEFINITA;
@@ -134,7 +134,7 @@ const I18N = {
   },
 
   /* Quale lingua servire a chi arriva su "/" senza indicazioni.
-     Ordine: scelta salvata → lingua del browser → italiano. */
+     Ordine: scelta salvata → lingua del browser → inglese. */
   rilevata() {
     const salvata = leggiScelta();
     if (salvata) return salvata;

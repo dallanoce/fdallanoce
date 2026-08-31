@@ -5,8 +5,10 @@ served exactly as it sits in the repo. No dependencies, no framework, no lock-in
 to any host.
 
 The site is bilingual, Italian and English, built as two parallel trees under
-`/it/` and `/en/`. Italian is the source language. Code comments are in Italian;
-documentation is in English.
+`/it/` and `/en/`. Italian is the source language — pages are drafted in Italian
+first, code comments are in Italian, documentation is in English — but **English
+is the default**: it is what a visitor gets when nothing about their language is
+known, and what `x-default` points at.
 
 ## Structure
 
@@ -66,7 +68,7 @@ The URLs are translated too — `/it/articoli/` ↔ `/en/articles/`,
 <link rel="canonical" href="/en/articles/">
 <link rel="alternate" hreflang="it" href="/it/articoli/">
 <link rel="alternate" hreflang="en" href="/en/articles/">
-<link rel="alternate" hreflang="x-default" href="/it/articoli/">
+<link rel="alternate" hreflang="x-default" href="/en/articles/">
 ```
 
 That declaration is the only record of the pairing. Search engines need it, and
