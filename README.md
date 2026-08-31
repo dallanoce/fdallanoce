@@ -21,14 +21,12 @@ documentation is in English.
 │   ├── cv/
 │   ├── articoli/                  links out to published articles
 │   └── strumenti/                 tool index
-│       ├── calcolatore-tasse/     one tool = one folder
-│       └── grigliata/
+│       └── grigliata/            one tool = one folder
 ├── en/                            English tree, same shape
 │   ├── index.html
 │   ├── cv/
 │   ├── articles/
 │   └── tools/
-│       ├── tax-calculator/
 │       └── barbecue/
 ├── stile/                         style guide (noindex, Italian only, not in the nav)
 └── assets/                        shared by both trees, never duplicated
@@ -106,7 +104,7 @@ that stay stable if the site is ever migrated to a static site generator.
 
 1. Create the page in both trees, as above
 2. If it needs logic, create **one** `assets/js/tools/tool-name.js` and reference
-   it at the bottom of both pages. Use `calcolatore-tasse.js` as the model:
+   it at the bottom of both pages. Use `grigliata.js` as the model:
    constants at the top, a pure calculation function, interface code last
 3. Add a row to both tool indexes, and to the Tool section of both home pages if
    you want it featured
@@ -144,7 +142,6 @@ paths are absolute.
       and the one on both home pages, with real published pieces
 - [ ] Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
       files (currently commented out), or drop it
-- [ ] Verify the rates and coefficients in `calcolatore-tasse.js`
 - [ ] Add a favicon under `assets/`
 - [ ] Once the domain exists, make the `hreflang` and `canonical` URLs absolute —
       Google ignores relative `hreflang`
@@ -155,5 +152,6 @@ See [`.claude/CLAUDE.md`](.claude/CLAUDE.md). It documents the design direction,
 the constraints behind these choices, and the traps worth knowing about before
 changing anything — why `tema.js`, `i18n.js` and `layout.js` load in that order
 and none may be deferred, why every JS file shares one global scope, the CSS
-specificity pitfall in `.prose`, and what the tax constants actually are. Written
+specificity pitfall in `.prose`, and why the tools store keys instead of
+translated text. Written
 for Claude Code, useful to any human picking the repo back up after a few months.

@@ -55,14 +55,12 @@ reasoning when it is not obvious.
 │   ├── cv/index.html
 │   ├── articoli/index.html
 │   └── strumenti/index.html
-│       ├── calcolatore-tasse/     one tool = one folder
-│       └── grigliata/
+│       └── grigliata/            one tool = one folder
 ├── en/                            albero inglese, stessa forma
 │   ├── index.html
 │   ├── cv/index.html
 │   ├── articles/index.html
 │   └── tools/index.html
-│       ├── tax-calculator/
 │       └── barbecue/
 ├── stile/index.html               style guide, noindex, Italian only, not in the nav
 └── assets/
@@ -123,8 +121,8 @@ files**, and nothing in the repo enforces that you made both. That is the trade
 that was chosen deliberately over keeping both languages inside one document.
 
 **URLs are translated too.** `/it/articoli/` ↔ `/en/articles/`,
-`/it/strumenti/` ↔ `/en/tools/`, `/it/strumenti/calcolatore-tasse/` ↔
-`/en/tools/tax-calculator/`. `cv` happens to be the same word in both. Because the
+`/it/strumenti/` ↔ `/en/tools/`, `/it/strumenti/grigliata/` ↔
+`/en/tools/barbecue/`. `cv` happens to be the same word in both. Because the
 pairing is declared per page in `hreflang`, translated slugs cost nothing extra to
 maintain — there is no central routing table to keep in sync.
 
@@ -163,9 +161,9 @@ plain two-link language chooser, which is what a visitor without JavaScript gets
 
 **What is not translated.** Article titles — those are the real published titles,
 one per article in every language; only the month next to them is a word of the
-site and gets translated. Proper nouns, tags, and Italian tax terms with no
-English equivalent (`regime forfettario`, `ATECO`), which are marked
-`<span lang="it">` in the English pages. That is a bare `lang` **without** any
+site and gets translated. Proper nouns, tags, and Italian terms with no English
+equivalent (`regime forfettario`, `ATECO`) — when one of those appears in an
+English page it is marked `<span lang="it">`. That is a bare `lang` **without** any
 class: it tells a screen reader how to pronounce a foreign phrase, which is what
 the attribute is actually for.
 
@@ -248,7 +246,7 @@ Anything the tool prints itself — `<option>` text, status messages, errors —
 through `I18N.t({ it, en })`, because an `<option>` cannot contain markup. If the
 tool formats numbers, pass `I18N.locale` to `Intl`; never write `"it-IT"` by hand.
 
-Follow the structure of `calcolatore-tasse.js`, which is the reference model:
+Follow the structure of `grigliata.js`, which is the reference model:
 
 ```
 1. PARAMETERS  — all domain constants, isolated at the top
@@ -365,10 +363,6 @@ Written down so future changes do not drift.
   and keeps its literal name in both languages. Saving the displayed name instead
   would give anyone who switches language a half-translated shopping list. The
   same applies to category keys (`carne`, not `Carne`).
-- **The tax constants in `calcolatore-tasse.js` are placeholders.** Rates and
-  coefficients change yearly and have not been verified against Agenzia delle
-  Entrate or INPS. Both pages carry a visible disclaimer. Never present the
-  output as authoritative, and never remove the disclaimer.
 
 ## Deployment
 
@@ -406,7 +400,6 @@ The custom domain has not been chosen yet, so the site currently lives on a
 - Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
   files (currently commented out). Decide whether there is one PDF or one per
   language
-- Verify and update the tax constants
 - Add a favicon
 - Choose and attach the custom domain. When it exists, make the `hreflang` and
   `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative

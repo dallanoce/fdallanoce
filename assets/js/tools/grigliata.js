@@ -1,7 +1,7 @@
 /* ==========================================================================
    GRIGLIATA — quanto comprare e quanto si spende
 
-   Struttura del file, la stessa di calcolatore-tasse.js:
+   Struttura del file:
      1. PARAMETRI   — catalogo, categorie e unità di misura, isolati in cima
      2. CALCOLO     — funzioni pure: stato dentro, risultato fuori
      3. INTERFACCIA — costruzione delle tabelle, rendering, eventi
