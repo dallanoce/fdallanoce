@@ -596,6 +596,331 @@ nodo.classList.add("is-on");</pre>
 &lt;/button&gt;</pre>
 
 
+  <p class="eyebrow">Guida: parte e blocco</p>
+
+  <p class="figcap">
+    Componenti della sezione 11 del foglio di stile. Servono a un tool che è
+    una guida da leggere invece che un modulo da compilare: li usa oggi
+    <a href="/it/strumenti/correlazione/">Correlation Field Guide</a>. Una
+    pagina che li usa vuole anche <span class="mono">wrap--wide</span> sul
+    <span class="mono">&lt;main&gt;</span>.
+  </p>
+
+  <section class="part">
+    <p class="part__num">Parte prima</p>
+    <h2 class="part__title">Titolo della parte</h2>
+    <p class="part__lead">
+      L'apertura della parte: una frase o due che dicono di che cosa si parla e
+      perché conviene leggerla.
+    </p>
+
+    <div class="block">
+      <h3 class="block__title">Titolo del blocco</h3>
+      <p class="block__note">La riga di contesto che sta sotto il titolo di un blocco.</p>
+    </div>
+  </section>
+
+  <pre class="code">&lt;section class="part" id="…"&gt;
+  &lt;p class="part__num"&gt;Parte prima&lt;/p&gt;
+  &lt;h2 class="part__title"&gt;…&lt;/h2&gt;
+  &lt;p class="part__lead"&gt;…&lt;/p&gt;
+
+  &lt;div class="block"&gt;
+    &lt;h3 class="block__title"&gt;…&lt;/h3&gt;
+    &lt;p class="block__note"&gt;…&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/section&gt;</pre>
+
+
+  <p class="eyebrow">Formula</p>
+
+  <div class="formula">
+    <span class="eq"><i>r</i><sub>xy</sub> =
+      <span class="frac">
+        <span class="frac__num">Σ<sub>i</sub>(<i>x</i><sub>i</sub> − <span class="overline"><i>x</i></span>)(<i>y</i><sub>i</sub> − <span class="overline"><i>y</i></span>)</span>
+        <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body"><i>s</i><sub>x</sub><i>s</i><sub>y</sub></span></span></span>
+      </span>
+    </span>
+  </div>
+
+  <p class="figcap">
+    Composta a mano con degli span: si seleziona, la legge uno screen reader e
+    cambia colore con il tema. <span class="mono">.eq</span> resta in flusso di
+    testo e non va mai messo in un contenitore flex.
+  </p>
+
+  <pre class="code">&lt;div class="formula"&gt;
+  &lt;span class="eq"&gt;&lt;i&gt;r&lt;/i&gt; =
+    &lt;span class="frac"&gt;
+      &lt;span class="frac__num"&gt;numeratore&lt;/span&gt;
+      &lt;span class="frac__den"&gt;denominatore&lt;/span&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;
+&lt;/div&gt;
+
+&lt;span class="rad"&gt;&lt;span class="rad__seg"&gt;√&lt;/span&gt;&lt;span class="rad__body"&gt;radicando&lt;/span&gt;&lt;/span&gt;
+&lt;span class="overline"&gt;&lt;i&gt;x&lt;/i&gt;&lt;/span&gt;   &lt;!-- media: la barra sopra la lettera --&gt;</pre>
+
+
+  <p class="eyebrow">Scheda</p>
+
+  <div class="plates">
+    <article class="plate">
+      <div class="plate__head">
+        <span class="plate__sym">ρ</span>
+        <h4 class="plate__name">Nome della scheda</h4>
+        <span class="plate__also">altro nome</span>
+      </div>
+      <div class="tags">
+        <span class="tag tag--accent">vede: monotona</span>
+        <span class="tag">da −1 a 1</span>
+        <span class="tag tag--warn">senza segno</span>
+      </div>
+      <div class="facts">
+        <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La voce a sinistra è fissa e corta, quella a destra è la spiegazione.</span></div>
+        <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Le stesse quattro voci su tutte le schede, così si confrontano incolonnate.</span></div>
+      </div>
+    </article>
+  </div>
+
+  <pre class="code">&lt;div class="plates"&gt;
+  &lt;article class="plate"&gt;
+    &lt;div class="plate__head"&gt;
+      &lt;span class="plate__sym"&gt;ρ&lt;/span&gt;
+      &lt;h4 class="plate__name"&gt;…&lt;/h4&gt;
+      &lt;span class="plate__also"&gt;…&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="tags"&gt;&lt;span class="tag tag--accent"&gt;…&lt;/span&gt;&lt;/div&gt;
+    &lt;div class="facts"&gt;
+      &lt;div class="facts__row"&gt;
+        &lt;span class="facts__key"&gt;…&lt;/span&gt;&lt;span class="facts__value"&gt;…&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/article&gt;
+&lt;/div&gt;</pre>
+
+  <p class="figcap">
+    Varianti di <span class="mono">.tag</span>: <span class="mono">--accent</span>
+    per quello che una misura vede, <span class="mono">--warn</span> per un
+    avvertimento, <span class="mono">--keep</span> e <span class="mono">--drop</span>
+    per una cosa tenuta o scartata.
+  </p>
+
+  <div class="tags">
+    <span class="tag">neutro</span>
+    <span class="tag tag--accent">accento</span>
+    <span class="tag tag--warn">avvertimento</span>
+    <span class="tag tag--keep">tenuta</span>
+    <span class="tag tag--drop">scartata</span>
+  </div>
+
+
+  <p class="eyebrow">Laboratorio</p>
+
+  <div class="lab">
+    <div class="lab__bar">
+      <p class="lab__label">Forma</p>
+      <div class="chips" role="group" aria-label="Esempio di scelta">
+        <button class="chip" type="button" aria-pressed="true">scelta attiva</button>
+        <button class="chip" type="button" aria-pressed="false">altra scelta</button>
+      </div>
+      <p class="lab__label">Rumore</p>
+      <div class="range range--inline">
+        <input class="range__slider" type="range" min="0" max="100" value="30" aria-label="Esempio di cursore">
+        <output class="range__value">0,30</output>
+      </div>
+      <button class="btn btn--ghost" type="button">Ricampiona</button>
+    </div>
+
+    <div class="lab__body">
+      <div class="split">
+        <div class="figure">
+          <p class="figcap">A sinistra il grafico, a destra i numeri. Sotto i 54rem passano in colonna.</p>
+          <div class="legend">
+            <span><span class="swatch swatch--1"></span> prima serie</span>
+            <span><span class="swatch swatch--2"></span> seconda serie</span>
+            <span><span class="swatch swatch--3"></span> terza serie</span>
+          </div>
+        </div>
+
+        <div class="figure">
+          <div class="stats">
+            <div class="stat">
+              <span class="stat__key">Coefficiente</span>
+              <span class="stat__value">0,80</span>
+              <span class="stat__meter"><span class="stat__fill" id="demo-barretta"></span></span>
+              <span class="stat__note">nota sotto il numero</span>
+            </div>
+          </div>
+          <div class="verdict"><b>Il verdetto in grassetto.</b> E poi la frase che spiega che cosa stanno dicendo i numeri qui sopra.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab__foot">
+      La nota tecnica in fondo: numerosità del campione, stimatori usati, cosa
+      non va letto come una misura di qualcosa di reale.
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="lab"&gt;
+  &lt;div class="lab__bar"&gt;
+    &lt;p class="lab__label"&gt;…&lt;/p&gt;
+    &lt;div class="chips" role="group" aria-label="…"&gt;
+      &lt;button class="chip" type="button" aria-pressed="true"&gt;…&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div class="range range--inline"&gt;
+      &lt;input class="range__slider" type="range" …&gt;
+      &lt;output class="range__value"&gt;…&lt;/output&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class="lab__body"&gt;
+    &lt;div class="split"&gt;
+      &lt;div class="figure"&gt;&lt;svg …&gt;&lt;/svg&gt;&lt;p class="figcap"&gt;…&lt;/p&gt;&lt;/div&gt;
+      &lt;div class="figure"&gt;
+        &lt;div class="stats"&gt;…&lt;/div&gt;
+        &lt;div class="verdict"&gt;&lt;b&gt;…&lt;/b&gt; …&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class="lab__foot"&gt;…&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- .stat della sezione 10 con in più barretta e nota --&gt;
+&lt;div class="stat"&gt;
+  &lt;span class="stat__key"&gt;…&lt;/span&gt;
+  &lt;span class="stat__value"&gt;…&lt;/span&gt;
+  &lt;span class="stat__meter"&gt;&lt;span class="stat__fill"&gt;&lt;/span&gt;&lt;/span&gt;
+  &lt;span class="stat__note"&gt;…&lt;/span&gt;
+&lt;/div&gt;</pre>
+
+  <p class="figcap">
+    Lo stato del chip è <span class="mono">aria-pressed</span> e non una classe:
+    quello che legge lo screen reader e quello che legge il CSS sono la stessa
+    cosa. La barretta della <span class="mono">.stat</span> riceve
+    <span class="mono">--da</span> e <span class="mono">--largo</span> dal
+    JavaScript, mai un attributo <span class="mono">style</span> scritto a mano.
+  </p>
+
+
+  <p class="eyebrow">Matrice colorata</p>
+
+  <div class="heat-scroll">
+    <div class="heat" id="demo-matrice" role="table" aria-label="Esempio di matrice">
+      <div class="heat__rowhead" role="rowheader">area_sqm</div>
+      <div class="heat__cell" role="cell">1</div>
+      <div class="heat__cell" role="cell">0,92</div>
+      <div class="heat__cell" role="cell">−0,74</div>
+    </div>
+  </div>
+
+  <div class="scale-key" aria-hidden="true">
+    <span>−1</span><span class="scale-key__ramp"></span><span>+1</span>
+  </div>
+
+  <div class="groups">
+    <div class="groups__row">
+      <span class="groups__name">gruppo 1</span>
+      <span class="tags"><span class="tag tag--keep">tenuta</span><span class="tag tag--drop">scartata</span></span>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="heat-scroll"&gt;
+  &lt;div class="heat" role="table" aria-label="…"&gt;
+    &lt;!-- righe e celle le costruisce il JavaScript --&gt;
+    &lt;div class="heat__colhead" role="columnheader"&gt;nome&lt;/div&gt;
+    &lt;div class="heat__rowhead" role="rowheader"&gt;nome&lt;/div&gt;
+    &lt;div class="heat__cell" role="cell"&gt;0,92&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class="scale-key"&gt;&lt;span&gt;−1&lt;/span&gt;&lt;span class="scale-key__ramp"&gt;&lt;/span&gt;&lt;span&gt;+1&lt;/span&gt;&lt;/div&gt;
+
+&lt;div class="groups"&gt;
+  &lt;div class="groups__row"&gt;
+    &lt;span class="groups__name"&gt;gruppo 1&lt;/span&gt;
+    &lt;span class="tags"&gt;…&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+  <p class="figcap">
+    Il colore della cella arriva da <span class="mono">--tinta</span> e
+    <span class="mono">--mescola</span>, e il numero è comunque stampato dentro:
+    il colore è un aiuto alla lettura, non l'unica codifica.
+  </p>
+
+
+  <p class="eyebrow">Elenco di mosse</p>
+
+  <div class="moves">
+    <article class="move">
+      <div class="move__side">
+        <p class="move__kind">Categoria</p>
+        <p class="move__cost">Costo: quello che si paga</p>
+      </div>
+      <div class="move__main">
+        <h4 class="move__title">Titolo della mossa</h4>
+        <div class="move__body">
+          <p>Che cosa si fa, e perché funziona.</p>
+          <p>Il secondo paragrafo, se serve.</p>
+        </div>
+        <div class="move__when">
+          <b>Quando sì</b>
+          <span>Le condizioni in cui è la scelta giusta.</span>
+          <b>Quando no</b>
+          <span>Le condizioni in cui è la scelta sbagliata.</span>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <pre class="code">&lt;div class="moves"&gt;
+  &lt;article class="move"&gt;
+    &lt;div class="move__side"&gt;
+      &lt;p class="move__kind"&gt;…&lt;/p&gt;
+      &lt;p class="move__cost"&gt;Costo: …&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class="move__main"&gt;
+      &lt;h4 class="move__title"&gt;…&lt;/h4&gt;
+      &lt;div class="move__body"&gt;&lt;p&gt;…&lt;/p&gt;&lt;/div&gt;
+      &lt;div class="move__when"&gt;
+        &lt;b&gt;Quando sì&lt;/b&gt;&lt;span&gt;…&lt;/span&gt;
+        &lt;b&gt;Quando no&lt;/b&gt;&lt;span&gt;…&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/article&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Riquadri e codice in linea</p>
+
+  <div class="callouts">
+    <div class="callout">
+      <h4>Un avvertimento</h4>
+      <p>Filetto ambra in cima: è la cosa che non regge.</p>
+    </div>
+    <div class="callout callout--good">
+      <h4>Una conferma</h4>
+      <p>Con <span class="mono">--good</span> il filetto diventa verde: è la cosa che invece regge.</p>
+    </div>
+  </div>
+
+  <p class="figcap">
+    Dentro una frase, un nome di funzione o di libreria va in
+    <code class="code code--inline">sklearn.inspection.permutation_importance</code>,
+    che è <span class="mono">.code</span> riportato in linea.
+  </p>
+
+  <pre class="code">&lt;div class="callouts"&gt;
+  &lt;div class="callout"&gt;&lt;h4&gt;…&lt;/h4&gt;&lt;p&gt;…&lt;/p&gt;&lt;/div&gt;
+  &lt;div class="callout callout--good"&gt;&lt;h4&gt;…&lt;/h4&gt;&lt;p&gt;…&lt;/p&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;code class="code code--inline"&gt;nome.di.funzione&lt;/code&gt;</pre>
+
+
   <p class="eyebrow">Colori</p>
 
   <div class="prose">
@@ -622,6 +947,16 @@ nodo.classList.add("is-on");</pre>
 <script>
   document.getElementById("demo-barra-1").style.setProperty("--quota", "100%");
   document.getElementById("demo-barra-2").style.setProperty("--quota", "42%");
+
+  document.getElementById("demo-barretta").style.setProperty("--da", "50%");
+  document.getElementById("demo-barretta").style.setProperty("--largo", "40%");
+
+  document.getElementById("demo-matrice").style.gridTemplateColumns = "6rem repeat(3, 38px)";
+  [[100, "pos"], [92, "pos"], [74, "neg"]].forEach(function (v, i) {
+    const cella = document.querySelectorAll("#demo-matrice .heat__cell")[i];
+    cella.style.setProperty("--tinta", "var(--heat-" + v[1] + ")");
+    cella.style.setProperty("--mescola", (v[0] * 0.55).toFixed(1) + "%");
+  });
 
   document.getElementById("demo-toast").addEventListener("click", function () {
     const nodo = document.getElementById("toast");

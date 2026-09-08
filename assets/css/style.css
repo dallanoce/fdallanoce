@@ -19,9 +19,10 @@
    8. Voci CV        — esperienze e formazione
    9. Form           — campi, bottoni, risultati (per i tool)
    10. Tool grandi   — pannelli, tabelle, barre, liste con spunta
-   11. Footer
-   12. Utility
-   13. Stampa
+   11. Guida         — parti, formule, schede, laboratori (guida correlazione)
+   12. Footer
+   13. Utility
+   14. Stampa
    ========================================================================== */
 
 
@@ -57,6 +58,27 @@
   --accent-deep:  #A3DCBB;   /* accento su hover */
   --accent-soft:  #22301F;   /* fondo tenue dell'accento */
   --rule:         #2C3229;   /* filetti e bordi */
+
+  /* Token in più, usati solo dalla guida alla correlazione (sezione 11).
+     --surface-2 è il terzo livello di profondità: una cassetta incassata
+     dentro una card, per le formule e per le barre dei comandi.
+     --warm è l'unico colore del sito che non è verde: serve a marcare un
+     avvertimento senza usare l'accento, che qui vuol dire "va bene".
+     Le tre serie sono i colori dei punti nei grafici, e vanno letti uno
+     accanto all'altro: verde, ambra, blu. */
+  --surface-2:    #22271F;   /* fondo incassato: formule, barre comandi */
+  --rule-strong:  #3E463A;   /* filetto marcato: bordo di un controllo */
+  --warm:         #D89A62;   /* ambra: avvertimenti, valore vero nei grafici */
+  --warm-soft:    #2E2418;   /* fondo tenue dell'ambra */
+
+  --serie-1:      #7CC49B;   /* prima serie di punti */
+  --serie-2:      #E0873F;   /* seconda serie */
+  --serie-3:      #6FA8D6;   /* terza serie */
+
+  --heat-pos:     #9FD9B6;   /* estremo positivo della matrice */
+  --heat-neg:     #E29A8B;   /* estremo negativo */
+  --heat-mid:     #1B1F1A;   /* zero */
+  --heat-ink:     #E9ECE7;   /* numero stampato dentro la cella */
 
   /* --- Tipografia -------------------------------------------------------- */
   --font-ui:   "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -119,6 +141,20 @@
   --accent-deep:  #1E4D35;
   --accent-soft:  #E4EDE6;
   --rule:         #DEE1DA;
+
+  --surface-2:    #ECEFEA;
+  --rule-strong:  #B9C0B4;
+  --warm:         #A2551B;
+  --warm-soft:    #F5EBE1;
+
+  --serie-1:      #2C6A4A;
+  --serie-2:      #B4581C;
+  --serie-3:      #2A5F92;
+
+  --heat-pos:     #2C6A4A;
+  --heat-neg:     #A2451B;
+  --heat-mid:     #FFFFFF;
+  --heat-ink:     #191C18;
 }
 
 
@@ -1055,7 +1091,542 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   11. FOOTER
+   11. GUIDA — parti, formule, schede, laboratori
+
+   La sezione 10 serve a un tool che è una tabella da compilare. Questi
+   componenti servono all'altro tipo di tool che c'è sul sito: una guida
+   lunga da leggere, con dentro dei laboratori con cui giocare.
+
+   Li usa oggi la guida alla correlazione. Sono pensati per essere riusabili
+   da un'eventuale seconda guida, ed è per questo che stanno qui e non in un
+   foglio a parte: il sito ha un foglio di stile solo, e i colori vengono
+   tutti dai token della sezione 1, così anche questa pagina cambia tema
+   insieme al resto.
+   ========================================================================== */
+
+
+/* --- Parti e blocchi ------------------------------------------------------
+   Una guida è fatta di due o tre parti, e ogni parte di più blocchi. Il
+   titolo di pagina resta .title--page: qui sotto c'è quello che viene dopo. */
+
+.part { padding-block: var(--s-10) var(--s-6); }
+.part + .part { border-top: 1px solid var(--rule); }
+
+.part__num {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+}
+
+.part__title {
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: var(--leading-tight);
+  margin: var(--s-2) 0 0;
+}
+
+.part__lead {
+  font-size: var(--t-lg);
+  color: var(--ink-2);
+  max-width: 34rem;
+  margin: var(--s-4) 0 0;
+}
+
+.block { margin-top: var(--s-8); }
+
+.block__title {
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: var(--leading-tight);
+  margin: 0;
+}
+
+.block__note {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  max-width: 38rem;
+  margin: var(--s-2) 0 0;
+}
+
+
+/* --- Formule --------------------------------------------------------------
+   Composte a mano con degli span, non con MathML e non con un'immagine: si
+   selezionano, si leggono da uno screen reader e cambiano colore con il tema.
+
+   .eq è in flusso di testo, mai flex: un contenitore flex farebbe di ogni
+   pezzo di testo e di ogni <sub> un elemento a sé, distanziandoli tutti. */
+
+.eq {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: var(--t-base);
+  line-height: 1.45;
+  color: var(--ink);
+}
+.eq i { font-style: italic; }
+.eq sub, .eq sup { font-size: 0.66em; font-style: italic; }
+
+/* Frazione: numeratore sopra, denominatore sotto, filetto in mezzo. */
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+}
+.frac__num { padding: 0 0.45em 0.16em; }
+.frac__den { padding: 0.16em 0.45em 0; border-top: 1px solid currentColor; }
+
+/* Radice: il segno √ e sopra il radicando una barra che lo copre. */
+.rad { display: inline-flex; align-items: stretch; vertical-align: middle; }
+.rad__seg { display: flex; align-items: flex-start; line-height: 1; font-weight: 400; }
+.rad__body { border-top: 1px solid currentColor; padding: 0.1em 0.15em 0 0.12em; }
+.rad--tall .rad__seg { font-size: 2.3em; line-height: 0.78; }
+
+/* Media campionaria: la barra sopra la lettera. */
+.overline {
+  display: inline-block;
+  border-top: 1px solid currentColor;
+  line-height: 1.05;
+  padding-top: 0.01em;
+}
+
+.formula {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-4);
+}
+
+
+/* --- Schede ---------------------------------------------------------------
+   Una scheda per coefficiente: simbolo, nome, formula, etichette e quattro
+   voci fisse (come si legge, cosa assume, quando si usa, cosa guardare).
+   Il fondo dei filetti è la griglia stessa: gap di 1px su fondo --rule. */
+
+.plates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-top: var(--s-5);
+}
+
+.plate {
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+  background: var(--surface);
+  padding: var(--s-5);
+}
+
+.plate__head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--s-3); }
+
+.plate__sym {
+  font-family: var(--font-ui);
+  font-style: italic;
+  font-size: var(--t-xl);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.plate__name {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.plate__also {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+/* Elenco chiave/valore dentro una scheda. La chiave è larga fissa, così le
+   quattro voci si leggono incolonnate; sotto i 26rem passa a due righe. */
+.facts { display: grid; gap: var(--s-3); font-size: var(--t-sm); }
+.facts__row { display: grid; grid-template-columns: 6rem 1fr; gap: var(--s-3); align-items: start; }
+
+.facts__key {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-top: 0.25em;
+}
+
+.facts__value { color: var(--ink-2); }
+.facts__value strong { color: var(--ink); font-weight: 500; }
+
+@media (max-width: 26rem) {
+  .facts__row { grid-template-columns: 1fr; gap: var(--s-1); }
+}
+
+/* Varianti di .tag (sezione 7) usate dalle schede e dai laboratori. */
+.tag--accent { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.tag--warn   { background: var(--warm-soft);  border-color: transparent; color: var(--warm); }
+.tag--keep   { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tag--drop   { border-style: dashed; color: var(--ink-3); text-decoration: line-through; }
+
+/* La colonna di una tabella di scelta che contiene la risposta, non le
+   alternative: .table (sezione 10) scrive le celle in --ink-2, questa le
+   riporta al colore pieno. */
+.table__pick { color: var(--ink); font-weight: 500; }
+
+
+/* --- Laboratorio ----------------------------------------------------------
+   Il pannello interattivo: una barra di comandi in cima, il corpo con i
+   grafici, una nota tecnica in fondo. */
+
+.lab {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-top: var(--s-5);
+}
+
+.lab__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-3) var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.lab__label {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.lab__body { display: grid; gap: var(--s-5); padding: var(--s-5); }
+
+.lab__foot {
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--rule);
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+}
+
+/* Bottoni a pastiglia che si escludono a vicenda. Lo stato non è una classe
+   ma aria-pressed: quello che legge lo screen reader e quello che legge il
+   CSS sono la stessa cosa, e non possono andare fuori sincrono. */
+.chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: var(--s-1) var(--s-3);
+  cursor: pointer;
+  transition: color var(--speed) ease, border-color var(--speed) ease;
+}
+.chip:hover { color: var(--accent); border-color: var(--accent); }
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+}
+
+/* Cursore stretto, per stare in fila dentro la barra di un laboratorio.
+   È .range della sezione 10 con la sola larghezza cambiata. */
+.range--inline { flex: 0 1 auto; gap: var(--s-3); }
+.range--inline .range__slider { flex: 0 0 8rem; }
+
+/* Grafico a sinistra, numeri a destra; una colonna sola sotto i 54rem. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--s-5);
+  align-items: start;
+}
+@media (max-width: 54rem) { .split { grid-template-columns: 1fr; } }
+
+.figure { display: grid; gap: var(--s-3); }
+.figure svg { width: 100%; height: auto; }
+
+.figcap { font-size: var(--t-sm); color: var(--ink-3); margin: 0; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+.legend span { display: inline-flex; align-items: center; gap: 0.45em; }
+
+.swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.swatch--1 { background: var(--serie-1); }
+.swatch--2 { background: var(--serie-2); }
+.swatch--3 { background: var(--serie-3); }
+
+/* Barretta sotto il numero di una .stat (sezione 10): quanto vale il
+   coefficiente, in scala. Posizione e larghezza arrivano dal JavaScript
+   nelle proprietà --da e --largo, mai come attributo style scritto a mano. */
+.stat__meter {
+  position: relative;
+  height: 4px;
+  margin-top: var(--s-2);
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stat__fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  left: var(--da, 0%);
+  width: var(--largo, 0%);
+  background: var(--serie-1);
+  border-radius: 999px;
+}
+.stat__fill--neg { background: var(--serie-2); }
+
+.stat__note {
+  display: block;
+  margin-top: var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+/* La lettura in parole di quello che i numeri stanno dicendo. */
+.verdict {
+  border-left: 2px solid var(--accent);
+  padding: var(--s-2) 0 var(--s-2) var(--s-4);
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+.verdict b { color: var(--ink); font-weight: 500; }
+
+
+/* --- Matrice di correlazione ----------------------------------------------
+   Una griglia di celle colorate con dentro il numero scritto. Il colore è
+   un aiuto alla lettura, non l'unica codifica: chi non distingue i due poli
+   legge comunque il valore. La tinta arriva dal JavaScript in --tinta e
+   --mescola, e si fonde con --heat-mid con color-mix(). */
+
+.heat-scroll { overflow-x: auto; padding-bottom: var(--s-2); }
+
+.heat { display: grid; gap: 2px; width: max-content; }
+
+.heat__colhead {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  align-self: end;
+  justify-self: center;
+  padding-bottom: 0.3em;
+  white-space: nowrap;
+}
+
+.heat__rowhead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  padding-right: 0.6em;
+  white-space: nowrap;
+}
+
+.heat__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 28px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--heat-ink);
+  background: var(--heat-mid);
+  background: color-mix(in oklab, var(--tinta, var(--heat-mid)) var(--mescola, 0%), var(--heat-mid));
+}
+
+.heat__cell.is-dropped { opacity: 0.22; }
+.heat__rowhead.is-dropped,
+.heat__colhead.is-dropped { color: var(--ink-3); text-decoration: line-through; }
+
+.scale-key {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+.scale-key__ramp {
+  height: 10px;
+  width: 9rem;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--heat-neg), var(--heat-mid), var(--heat-pos));
+}
+
+/* Gruppi di feature ridondanti: un nome di gruppo e le sue etichette. */
+.groups { display: grid; gap: var(--s-2); }
+.groups__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); font-size: var(--t-sm); }
+.groups__name {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  min-width: 5.5rem;
+}
+
+
+/* --- Elenco di mosse ------------------------------------------------------
+   Le alternative in fila, ognuna con la sua etichetta e il suo costo a
+   sinistra. Sotto i 45rem l'etichetta va sopra invece che a fianco. */
+
+.moves {
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-top: var(--s-5);
+}
+
+.move {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--s-5);
+  background: var(--surface);
+  padding: var(--s-5);
+}
+@media (max-width: 45rem) { .move { grid-template-columns: 1fr; gap: var(--s-3); } }
+
+.move__side { display: grid; gap: var(--s-2); align-content: start; }
+
+.move__kind {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.move__cost { font-size: var(--t-xs); color: var(--ink-3); margin: 0; }
+
+.move__main { display: grid; gap: var(--s-3); }
+
+.move__title {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  margin: 0;
+}
+
+.move__body { color: var(--ink-2); }
+.move__body p { margin: 0; }
+.move__body p + p { margin-top: var(--s-3); }
+
+.move__when {
+  display: grid;
+  gap: var(--s-2);
+  border-top: 1px solid var(--rule);
+  padding-top: var(--s-3);
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+.move__when b {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+
+/* --- Riquadri di avvertimento --------------------------------------------
+   Quattro cose che il numero non dice. Filetto ambra in cima; --good lo
+   fa verde, per la cosa che invece regge. */
+
+.callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+}
+
+.callout { display: grid; gap: var(--s-2); border-top: 2px solid var(--warm); padding-top: var(--s-3); }
+.callout--good { border-top-color: var(--accent); }
+
+.callout h4 { font-size: var(--t-base); font-weight: 700; margin: 0; }
+.callout p { font-size: var(--t-sm); color: var(--ink-2); margin: 0; }
+
+
+/* --- Codice dentro una frase ----------------------------------------------
+   .code della sezione 7 è un blocco: questa variante lo riporta in linea. */
+
+.code--inline {
+  display: inline;
+  padding: 0.1em 0.35em;
+  margin: 0;
+  white-space: normal;
+  color: var(--ink);
+  /* Un nome come sklearn.inspection.permutation_importance è una parola sola
+     e su un telefono non ci sta: senza questa riga non va a capo e a
+     scorrere in orizzontale è tutta la pagina. */
+  overflow-wrap: anywhere;
+}
+
+
+/* --- Cornice dei grafici SVG ----------------------------------------------
+   I punti e gli assi sono disegnati dal JavaScript, che assegna solo queste
+   classi: nessun colore entra nel codice, e i grafici cambiano tema con la
+   pagina come tutto il resto. */
+
+.ax { fill: none; stroke: var(--rule-strong); stroke-width: 1; }
+.gridline { fill: none; stroke: var(--rule); stroke-width: 1; }
+
+.axlab {
+  fill: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.pt { fill: var(--serie-1); fill-opacity: 0.68; }
+.pt--2 { fill: var(--serie-2); fill-opacity: 0.85; }
+.pt--3 { fill: var(--serie-3); fill-opacity: 0.68; }
+
+.markline { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.truept { fill: none; stroke: var(--warm); stroke-width: 1.5; }
+
+
+/* ==========================================================================
+   12. FOOTER
    ========================================================================== */
 
 .footer {
@@ -1080,7 +1651,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   12. UTILITY — poche e mirate
+   13. UTILITY — poche e mirate
    ========================================================================== */
 
 .stack-sm > * + * { margin-top: var(--s-3); }
@@ -1095,7 +1666,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   13. STAMPA
+   14. STAMPA
    Quello che si stampa è il contenuto: testata, footer e comandi restano
    fuori. Un tool marca con .no-print i suoi moduli e i suoi bottoni, e con
    .print-only le righe che hanno senso solo sul foglio (un'intestazione con
@@ -1133,6 +1704,20 @@ a:hover { color: var(--accent-deep); }
     --accent-deep:  #000000;
     --accent-soft:  #F0F0F0;
     --rule:         #AAAAAA;
+
+    --surface-2:    #F4F4F4;
+    --rule-strong:  #777777;
+    --warm:         #000000;
+    --warm-soft:    #F0F0F0;
+
+    --serie-1:      #000000;
+    --serie-2:      #666666;
+    --serie-3:      #999999;
+
+    --heat-pos:     #000000;
+    --heat-neg:     #000000;
+    --heat-mid:     #FFFFFF;
+    --heat-ink:     #000000;
   }
 
   .masthead, .footer, .skip, .toast, .no-print { display: none !important; }
@@ -1141,6 +1726,15 @@ a:hover { color: var(--accent-deep); }
   .page { padding-block: 0; }
   .wrap { max-width: none; padding-inline: 0; }
   .table { min-width: 0; }
+
+  /* Guida (sezione 11): i comandi dei laboratori sulla carta non servono,
+     ma il grafico e i numeri che sono a schermo in quel momento sì. Il
+     resto è solo un elenco di cose da non spezzare a metà pagina. */
+  .lab__bar, .chip, .btn { display: none !important; }
+  .lab { break-inside: avoid; }
+  .plate, .move, .callout, .table-wrap, .formula { break-inside: avoid; }
+  .part { break-before: page; }
+  .part:first-of-type { break-before: auto; }
 
   a { color: var(--ink); text-decoration: none; }
 }

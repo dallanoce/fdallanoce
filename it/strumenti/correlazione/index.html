@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Correlation Field Guide — Francesco Dallanoce</title>
+  <meta name="description" content="Quale misura di correlazione vede quale tipo di dipendenza, e cosa fare quando due feature portano la stessa informazione. Dieci coefficienti, otto trattamenti, tre laboratori dal vivo.">
+
+  <link rel="canonical" href="/it/strumenti/correlazione/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/correlazione/">
+  <link rel="alternate" hreflang="en" href="/en/tools/correlation/">
+  <link rel="alternate" hreflang="x-default" href="/en/tools/correlation/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<!--
+  Gli id dei comandi (rumore, soglia, matrice…) sono gli stessi della pagina
+  gemella inglese: un solo file JavaScript serve tutte e due le lingue, quindi
+  la matematica esiste una volta sola.
+
+  Gli ancoraggi delle sezioni (#misurare, #gestire) invece sono tradotti, come
+  tutti gli indirizzi del sito: finiscono nella barra dell'indirizzo e nessuno
+  li usa dal JavaScript.
+
+  Il nome del tool resta "Correlation Field Guide" anche qui: è il nome della
+  cosa, non una frase da tradurre.
+-->
+<main id="contenuto" class="wrap wrap--wide page">
+
+  <h1 class="title title--page">Correlation Field Guide</h1>
+  <p class="lede">
+    Un coefficiente è un riassunto, e ogni riassunto butta via qualcosa. Quale
+    misura di correlazione vede quale tipo di dipendenza, e cosa fare davvero
+    quando due feature portano la stessa informazione.
+  </p>
+
+  <div class="note">
+    <p>
+      Ogni numero di questa pagina è calcolato dal tuo browser a partire da un
+      generatore con seme: niente è precalcolato e niente viene inviato da
+      nessuna parte.
+    </p>
+  </div>
+
+  <p class="eyebrow">Indice</p>
+
+  <nav class="index" aria-label="Indice">
+    <a class="index__row" href="#misurare">
+      <span class="index__main">
+        <span class="index__label">Parte prima — Misurare la dipendenza</span>
+        <span class="index__note">Dieci coefficienti, cosa ognuno riesce e non riesce a vedere, e un laboratorio dove gli stessi dati vengono letti da cinque misure insieme.</span>
+      </span>
+      <span class="index__meta">#misurare</span>
+    </a>
+    <a class="index__row" href="#gestire">
+      <span class="index__main">
+        <span class="index__label">Parte seconda — Gestire feature correlate</span>
+        <span class="index__note">Perché la collinearità rende instabili i coefficienti ma non le previsioni, come accorgersene al di là della r a coppie, e otto trattamenti con il loro costo vero.</span>
+      </span>
+      <span class="index__meta">#gestire</span>
+    </a>
+  </nav>
+
+
+  <!-- ======================================================================
+       PARTE UNO
+       ====================================================================== -->
+  <section class="part" id="misurare">
+    <p class="part__num">Parte prima</p>
+    <h2 class="part__title">Misurare la dipendenza</h2>
+    <p class="part__lead">
+      Ognuno dei coefficienti qui sotto risponde a una domanda leggermente
+      diversa. Pearson chiede quanto bene ci sta una retta. Spearman chiede se
+      l'ordinamento è d'accordo. La correlazione di distanza chiede se le due
+      variabili siano indipendenti o no. Dagli gli stessi dati e non saranno
+      d'accordo — e quel disaccordo è già di per sé la diagnosi.
+    </p>
+
+    <!-- ---------- LABORATORIO 1 ---------- -->
+    <div class="block" id="laboratorio">
+      <h3 class="block__title">Cinque misure, un campione solo</h3>
+      <p class="block__note">
+        Scegli una forma. Tutti e cinque i coefficienti vengono ricalcolati sugli
+        stessi 200 punti, così li si guarda mentre si separano. Passa ai
+        <em>ranghi</em> per vedere il grafico esattamente come lo vedono Spearman
+        e Kendall: i valori sono sostituiti dalla loro posizione nell'ordinamento.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <p class="lab__label">Forma</p>
+          <div class="chips" id="forme-chip" role="group" aria-label="Forma dei dati"></div>
+        </div>
+        <div class="lab__bar">
+          <p class="lab__label">Rumore</p>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="rumore" min="0" max="100" value="30" aria-label="Livello di rumore">
+            <output class="range__value" id="rumore-out" for="rumore">0,30</output>
+          </div>
+          <p class="lab__label">Vista</p>
+          <div class="chips" role="group" aria-label="Spazio del grafico">
+            <button class="chip" id="vista-valori" type="button" aria-pressed="true">valori</button>
+            <button class="chip" id="vista-ranghi" type="button" aria-pressed="false">ranghi</button>
+          </div>
+          <button class="btn btn--ghost" id="ricampiona" type="button">Ricampiona</button>
+        </div>
+
+        <div class="lab__body">
+          <div class="split">
+            <div class="figure">
+              <svg id="dispersione" viewBox="0 0 420 320" role="img" aria-labelledby="dispersione-titolo">
+                <title id="dispersione-titolo">Grafico di dispersione del campione sintetico scelto</title>
+                <g id="dispersione-punti"></g>
+              </svg>
+              <div class="legend" id="dispersione-legenda"></div>
+              <p class="figcap" id="dispersione-didascalia"></p>
+            </div>
+
+            <div class="figure">
+              <div class="stats" id="letture" aria-live="polite"></div>
+              <div class="verdict" id="verdetto" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lab__foot">
+          Campione sintetico, <code class="code code--inline">n = 200</code>, estratto da un
+          generatore con seme, così ogni lettura è riproducibile. L'informazione mutua usa 7
+          bin a frequenza uguale per asse, normalizzati per
+          <span class="eq"><span class="rad"><span class="rad__seg">√</span><span class="rad__body"><i>H</i>(<i>X</i>)<i>H</i>(<i>Y</i>)</span></span></span>.
+          Le due misure senza segno sono <strong>distorte verso l'alto a <i>n</i> finito</strong>:
+          su dati genuinamente indipendenti, a questa numerosità, la correlazione di distanza
+          vale in media 0,12 e l'informazione mutua normalizzata 0,05. Le soglie citate sotto i
+          numeri sono il 95° percentile sotto indipendenza, misurato per simulazione — una
+          lettura sotto la soglia vuol dire <em>non c'è niente</em>, non <em>dipendenza
+          debole</em>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- TABELLA DI SCELTA ---------- -->
+    <div class="block">
+      <h3 class="block__title">Scegliere in base al tipo delle due variabili</h3>
+      <p class="block__note">
+        Quasi tutta la scelta è già decisa prima ancora di guardare i dati: le
+        scale di misura delle due variabili escludono da sole quasi tutte le
+        alternative.
+      </p>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Variabile A</th>
+              <th scope="col">Variabile B</th>
+              <th scope="col">Scelta di default</th>
+              <th scope="col">Cambia misura quando</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Continua</td><td>Continua</td>
+              <td><span class="table__pick">Pearson <i>r</i></span></td>
+              <td>Code pesanti, valori anomali, o una relazione curva ma monotona → Spearman</td>
+            </tr>
+            <tr>
+              <td>Ordinale</td><td>Ordinale</td>
+              <td><span class="table__pick">Kendall <i>τ</i><sub>b</sub></span></td>
+              <td>Pochi pari merito e <i>n</i> ben sopra ~50 → Spearman si legge più facilmente</td>
+            </tr>
+            <tr>
+              <td>Continua</td><td>Binaria</td>
+              <td><span class="table__pick">Punto-biseriale <i>r</i><sub>pb</sub></span></td>
+              <td>La divisione binaria è molto sbilanciata → riporta le medie dei gruppi e una misura di effetto</td>
+            </tr>
+            <tr>
+              <td>Binaria</td><td>Binaria</td>
+              <td><span class="table__pick">Phi <i>φ</i></span></td>
+              <td>Vuoi un rapporto interpretabile → odds ratio o lift</td>
+            </tr>
+            <tr>
+              <td>Nominale (<i>k</i> livelli)</td><td>Nominale (<i>m</i> livelli)</td>
+              <td><span class="table__pick">V di Cramér</span></td>
+              <td>Molti livelli rari — la <i>V</i> è distorta verso l'alto → usa la variante corretta</td>
+            </tr>
+            <tr>
+              <td>Continua</td><td>Nominale (<i>k</i> livelli)</td>
+              <td><span class="table__pick">Rapporto di correlazione <i>η</i>²</span></td>
+              <td>Gruppi fortemente non normali → <i>ε</i>² da un test di Kruskal–Wallis</td>
+            </tr>
+            <tr>
+              <td>Qualunque</td><td>Qualunque</td>
+              <td><span class="table__pick">Correlazione di distanza</span></td>
+              <td>Vuoi vedere <em>dove</em> sta la dipendenza → la tabella congiunta a bin che sta dietro all'informazione mutua</td>
+            </tr>
+            <tr>
+              <td colspan="2">Due variabili, con una terza da tenere ferma</td>
+              <td><span class="table__pick">Correlazione parziale <i>r</i><sub>xy·z</sub></span></td>
+              <td>Vuoi togliere l'effetto di <i>z</i> da un lato solo → semi-parziale</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- SCHEDE DEI COEFFICIENTI ---------- -->
+    <div class="block">
+      <h3 class="block__title">I coefficienti</h3>
+      <p class="block__note">Intervallo, assunzioni, e il modo di rompersi che dà davvero fastidio nella pratica.</p>
+
+      <div class="plates">
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">r</span>
+            <h4 class="plate__name">Correlazione di Pearson</h4>
+            <span class="plate__also">momento-prodotto</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>r</i><sub>xy</sub> =
+              <span class="frac">
+                <span class="frac__num">Σ<sub>i</sub>(<i>x</i><sub>i</sub> − <span class="overline"><i>x</i></span>)(<i>y</i><sub>i</sub> − <span class="overline"><i>y</i></span>)</span>
+                <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">Σ<sub>i</sub>(<i>x</i><sub>i</sub> − <span class="overline"><i>x</i></span>)² · Σ<sub>i</sub>(<i>y</i><sub>i</sub> − <span class="overline"><i>y</i></span>)²</span></span></span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: lineare</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">scala a intervalli</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">Covarianza divisa per le due deviazioni standard. <strong>r²</strong> è la quota di varianza di <i>y</i> spiegata da una retta in <i>x</i>.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Una relazione lineare e varianza finita. Non la normalità né errori simmetrici: quelli servono solo al <i>p</i>-value.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Quando le due variabili sono continue e ti interessa davvero l'aderenza a una retta: modelli lineari, PCA, tutto ciò che è costruito su una matrice di covarianza.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Un solo punto a leva alta può portare <i>r</i> da 0 a 0,8. La curvatura gliela fa leggere zero su una relazione perfetta. Restringere l'intervallo (filtrare il campione) la attenua.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">ρ</span>
+            <h4 class="plate__name">Correlazione di Spearman</h4>
+            <span class="plate__also">per ranghi</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>ρ</i> = 1 −
+              <span class="frac">
+                <span class="frac__num">6 Σ<sub>i</sub> <i>d</i><sub>i</sub>²</span>
+                <span class="frac__den"><i>n</i>(<i>n</i>² − 1)</span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: monotona</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">scala ordinale</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">Pearson calcolato sui <strong>ranghi</strong>. La scorciatoia qui sopra vale solo senza pari merito; con i pari merito si calcolano prima i ranghi e poi si applica Pearson.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Solo che la relazione sia monotona e che i dati si possano ordinare. <i>d</i><sub>i</sub> è la differenza di rango dell'osservazione <i>i</i>.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Variabili asimmetriche, valori anomali, scale ordinali, o una relazione che ti aspetti monotona ma non dritta: prezzi, conteggi, durate, item di un questionario.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Resta cieca alle forme non monotone (una U continua a leggere zero). <i>ρ</i>² non è una quota di varianza. Passare ai ranghi butta via la grandezza dei salti, che a volte era proprio quello che ti interessava.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">τ</span>
+            <h4 class="plate__name">Tau-b di Kendall</h4>
+            <span class="plate__also">concordanza</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>τ</i><sub>b</sub> =
+              <span class="frac">
+                <span class="frac__num"><i>C</i> − <i>D</i></span>
+                <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">(<i>n</i><sub>0</sub> − <i>n</i><sub>1</sub>)(<i>n</i><sub>0</sub> − <i>n</i><sub>2</sub>)</span></span></span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: monotona</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">regge i pari merito</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">Una differenza fra probabilità: <strong>P(concordanti) − P(discordanti)</strong> su tutte le coppie. <i>C</i> e <i>D</i> contano le coppie che concordano e quelle che discordano; <i>n</i><sub>0</sub> è il totale delle coppie, <i>n</i><sub>1</sub> e <i>n</i><sub>2</sub> quelle pari merito su <i>x</i> e su <i>y</i>.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Nient'altro che un ordinamento. È la più libera da assunzioni delle tre.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Campioni piccoli, tanti pari merito, o quando vuoi un coefficiente con un significato probabilistico diretto da poter dire a chi ti ascolta.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Sugli stessi dati è numericamente più piccola di Spearman — grosso modo <i>τ</i> ≈ ⅔<i>ρ</i> su dati regolari — quindi non confrontare mai le due fra un resoconto e l'altro. Il calcolo ingenuo è O(<i>n</i>²); l'algoritmo di Knight lo porta a O(<i>n</i> log <i>n</i>) ed è quello che usa <code class="code code--inline">scipy.stats.kendalltau</code>.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">r<sub>pb</sub></span>
+            <h4 class="plate__name">Punto-biseriale</h4>
+            <span class="plate__also">continua ↔ binaria</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>r</i><sub>pb</sub> =
+              <span class="frac">
+                <span class="frac__num"><i>M</i><sub>1</sub> − <i>M</i><sub>0</sub></span>
+                <span class="frac__den"><i>s</i><sub>n</sub></span>
+              </span>
+              <span class="rad rad--tall"><span class="rad__seg">√</span><span class="rad__body">
+                <span class="frac"><span class="frac__num"><i>n</i><sub>1</sub><i>n</i><sub>0</sub></span><span class="frac__den"><i>n</i>²</span></span>
+              </span></span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: scarto fra medie</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">= Pearson</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La distanza standardizzata fra le medie dei due gruppi, scalata da quanto è bilanciata la divisione. <strong>È algebricamente identica a Pearson</strong> con la binaria codificata 0/1: non c'è nessuno stimatore in più da implementare.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Una dicotomia vera. Se la binaria è nata tagliando una variabile continua, la parente giusta è la correlazione biseriale.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Per passare in rassegna feature continue contro un target binario, o una bandierina binaria contro un esito continuo.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Il bilanciamento delle classi le impedisce di arrivare a ±1: una divisione 95/5 tiene <i>r</i><sub>pb</sub> ben sotto 1 anche quando i due gruppi non si sovrappongono per niente — il tetto viene dal confronto fra una marginale a due punti e una continua distribuita. Confronta solo feature con bilanciamento simile.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">V</span>
+            <h4 class="plate__name">V di Cramér</h4>
+            <span class="plate__also">nominale ↔ nominale</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>V</i> =
+              <span class="rad rad--tall"><span class="rad__seg">√</span><span class="rad__body">
+                <span class="frac">
+                  <span class="frac__num"><i>χ</i>²</span>
+                  <span class="frac__den"><i>n</i> · min(<i>k</i> − 1, <i>m</i> − 1)</span>
+                </span>
+              </span></span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: qualunque associazione</span>
+            <span class="tag">da 0 a 1</span>
+            <span class="tag tag--warn">senza segno</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La statistica <i>χ</i>² della tabella di contingenza, normalizzata perché non possa superare 1. Su una tabella 2×2 si riduce a <strong>|φ|</strong>.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Abbastanza osservazioni per cella perché il <i>χ</i>² voglia dire qualcosa: la regola pratica è un conteggio atteso di 5.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Quando tutte e due le variabili sono categorie senza ordine: paese, dispositivo, linea di prodotto, codice di errore.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">È fortemente distorta verso l'alto quando una delle due variabili ha molti livelli rispetto a <i>n</i>: una colonna di identificativi risulterà "associata" a tutto. Usa la versione corretta (Bergsma 2013: al posto di <i>φ</i>² = <i>χ</i>²/<i>n</i> si mette max(0, <i>φ</i>² − (<i>k</i>−1)(<i>m</i>−1)/(<i>n</i>−1)) e si restringono <i>k</i> e <i>m</i> allo stesso modo), e non ordinare mai le feature per <i>V</i> grezza fra cardinalità diverse.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">η²</span>
+            <h4 class="plate__name">Rapporto di correlazione</h4>
+            <span class="plate__also">continua ↔ nominale</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>η</i>² =
+              <span class="frac">
+                <span class="frac__num">Σ<sub>g</sub> <i>n</i><sub>g</sub>(<span class="overline"><i>y</i></span><sub>g</sub> − <span class="overline"><i>y</i></span>)²</span>
+                <span class="frac__den">Σ<sub>i</sub>(<i>y</i><sub>i</sub> − <span class="overline"><i>y</i></span>)²</span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: separazione fra gruppi</span>
+            <span class="tag">da 0 a 1</span>
+            <span class="tag">= ANOVA</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La quota di varianza di <i>y</i> spiegata dal sapere a quale <strong>gruppo</strong> appartiene una riga. Somma dei quadrati fra i gruppi sul totale.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Niente sull'ordine dei gruppi — è proprio questo il punto. È la misura di effetto dell'ANOVA a una via.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Per chiedersi se una feature categorica porti informazione su un target numerico, o se una feature numerica sia ridondante rispetto a una categoria.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Anche questa è gonfiata dall'alta cardinalità: con un gruppo per riga, <i>η</i>² vale esattamente 1. Usa la convalida incrociata, oppure l'<i>ω</i>² corretto.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">dCor</span>
+            <h4 class="plate__name">Correlazione di distanza</h4>
+            <span class="plate__also">Székely–Rizzo</span>
+          </div>
+          <div class="formula">
+            <span class="eq">dCor²(<i>X</i>,<i>Y</i>) =
+              <span class="frac">
+                <span class="frac__num">dCov²(<i>X</i>,<i>Y</i>)</span>
+                <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">dVar²(<i>X</i>) dVar²(<i>Y</i>)</span></span></span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: qualunque dipendenza</span>
+            <span class="tag">da 0 a 1</span>
+            <span class="tag tag--warn">senza segno</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La correlazione di Pearson fra le <strong>matrici delle distanze a coppie doppiamente centrate</strong> di <i>X</i> e <i>Y</i>. La sua proprietà caratteristica: dCor = 0 <em>se e solo se</em> le due sono indipendenti.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Momenti primi finiti. Funziona anche su vettori di dimensione diversa, cosa che la <i>r</i> a coppie non sa fare.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Quando sospetti una relazione che le misure lineari si stanno perdendo, o quando ti serve una statistica di screening che non restituisca zero in silenzio su una dipendenza vera.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">O(<i>n</i>²) in memoria e in tempo: sopra le ~10 mila righe conviene campionare. Non dà né direzione né forma: un valore alto ti dice di andare a fare il grafico di quella coppia, nient'altro.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">I</span>
+            <h4 class="plate__name">Informazione mutua</h4>
+            <span class="plate__also">guadagno di informazione</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>I</i>(<i>X</i>;<i>Y</i>) = Σ<sub>x</sub>Σ<sub>y</sub> <i>p</i>(<i>x</i>,<i>y</i>) log
+              <span class="frac">
+                <span class="frac__num"><i>p</i>(<i>x</i>,<i>y</i>)</span>
+                <span class="frac__den"><i>p</i>(<i>x</i>)<i>p</i>(<i>y</i>)</span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: qualunque dipendenza</span>
+            <span class="tag">da 0 a ∞</span>
+            <span class="tag tag--warn">dipende dallo stimatore</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">Quanti <strong>nat di incertezza</strong> su <i>Y</i> spariscono una volta che conosci <i>X</i>. Vale zero esattamente quando sono indipendenti. Normalizzandola per le entropie si ottiene un numero fra 0 e 1, confrontabile fra coppie diverse.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Niente sulla forma della relazione — ma per variabili continue devi scegliere uno stimatore di densità, e la scelta sposta il numero.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Quando in una stessa rassegna ci sono tipi di variabile diversi, o quando vuoi una misura sola che valga per categorie e numeri insieme.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">È distorta verso l'alto con <i>n</i> piccolo: variabili indipendenti prendono più di zero, e la distorsione cresce con il numero di bin. Fissa la binatura per tutte le coppie prima di ordinare le feature, oppure usa uno stimatore basato sui <i>k</i> vicini più prossimi.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">r<sub>xy·z</sub></span>
+            <h4 class="plate__name">Correlazione parziale</h4>
+            <span class="plate__also">tenendo fermo z</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>r</i><sub>xy·z</sub> =
+              <span class="frac">
+                <span class="frac__num"><i>r</i><sub>xy</sub> − <i>r</i><sub>xz</sub><i>r</i><sub>yz</sub></span>
+                <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">(1 − <i>r</i><sub>xz</sub>²)(1 − <i>r</i><sub>yz</sub>²)</span></span></span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: lineare residua</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">multivariata</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">La correlazione fra i <strong>residui</strong> di <i>x</i> e di <i>y</i> dopo che ciascuno è stato regredito su <i>z</i>. In forma matriciale, l'inversa della covarianza normalizzata e cambiata di segno: la matrice di precisione.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Che le relazioni con la variabile di controllo siano lineari. Per un controllo generale, si regredisce con un modello flessibile e si correlano i residui.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Quando due feature sembrano correlate solo perché seguono tutte e due una terza cosa — il tempo, la dimensione, la zona. Separa i motori comuni dalla ridondanza vera e propria.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Condizionare su un <em>collider</em> crea correlazione che prima non c'era. Su quali variabili si controlla è un'affermazione causale, non una comodità statistica.</span></div>
+          </div>
+        </article>
+
+        <article class="plate">
+          <div class="plate__head">
+            <span class="plate__sym">φ</span>
+            <h4 class="plate__name">Coefficiente phi</h4>
+            <span class="plate__also">binaria ↔ binaria</span>
+          </div>
+          <div class="formula">
+            <span class="eq"><i>φ</i> =
+              <span class="frac">
+                <span class="frac__num"><i>ad</i> − <i>bc</i></span>
+                <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">(<i>a</i>+<i>b</i>)(<i>c</i>+<i>d</i>)(<i>a</i>+<i>c</i>)(<i>b</i>+<i>d</i>)</span></span></span>
+              </span>
+            </span>
+          </div>
+          <div class="tags">
+            <span class="tag tag--accent">vede: associazione 2×2</span>
+            <span class="tag">da −1 a 1</span>
+            <span class="tag">= Pearson</span>
+          </div>
+          <div class="facts">
+            <div class="facts__row"><span class="facts__key">Si legge</span><span class="facts__value">Pearson su due variabili 0/1, scritta in funzione dei quattro conteggi <i>a b c d</i> della tabella 2×2.</span></div>
+            <div class="facts__row"><span class="facts__key">Assume</span><span class="facts__value">Due dicotomie vere.</span></div>
+            <div class="facts__row"><span class="facts__key">Si usa</span><span class="facts__value">Per controllare se due bandierine binarie — due regole, due etichette, due colonne one-hot — stiano portando lo stesso segnale.</span></div>
+            <div class="facts__row"><span class="facts__key">Attenzione</span><span class="facts__value">Come la punto-biseriale, il suo massimo è limitato dalle marginali: due eventi rari con frequenze di base diverse — poniamo 1% e 10% — possono essere l'uno implicato dall'altro e segnare comunque <i>φ</i> ≈ 0,3. Riporta l'odds ratio accanto.</span></div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+
+    <!-- ---------- QUATTRO AVVERTIMENTI ---------- -->
+    <div class="block">
+      <h3 class="block__title">Quattro cose che un coefficiente non ti dice</h3>
+      <div class="callouts">
+        <div class="callout">
+          <h4>La forma</h4>
+          <p>Il quartetto di Anscombe e il Datasaurus sono le dimostrazioni classiche: nuvole
+            di punti completamente diverse che condividono le stesse medie, le stesse varianze
+            e la stessa <i>r</i> alla seconda cifra. Fai il grafico della coppia prima di agire
+            sul numero.</p>
+        </div>
+        <div class="callout">
+          <h4>La direzione della causa</h4>
+          <p>Un coefficiente è simmetrico — <i>r</i><sub>xy</sub> = <i>r</i><sub>yx</sub> — e
+            quindi non può contenere informazione sulla direzione nemmeno in linea di
+            principio. Tutto ciò che è causale viene dal disegno dello studio, non dalla
+            statistica.</p>
+        </div>
+        <div class="callout">
+          <h4>Se il campione è una popolazione sola</h4>
+          <p>Paradosso di Simpson: una relazione negativa dentro ogni sottogruppo può risultare
+            positiva sul totale. Prova la forma <em>due gruppi</em> nel laboratorio. Chiediti
+            sempre che cosa sono le righe.</p>
+        </div>
+        <div class="callout">
+          <h4>Quanto crederci</h4>
+          <p>Con <i>n</i> = 20, l'intervallo al 95% attorno a una <i>r</i> di 0,5 va all'incirca
+            da 0,07 a 0,77. Fai il bootstrap del coefficiente prima di costruire una decisione
+            sulla terza cifra decimale.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE DUE
+       ====================================================================== -->
+  <section class="part" id="gestire">
+    <p class="part__num">Parte seconda</p>
+    <h2 class="part__title">Gestire feature correlate</h2>
+    <p class="part__lead">
+      La collinearità non è un difetto di qualità dei dati da ripulire. È
+      un'affermazione su che cosa i tuoi dati riescono e non riescono a
+      identificare. Prima di correre ai ripari, sii preciso su quale delle due
+      cose rompe davvero — perché una la rompe sempre e l'altra la lascia sempre
+      stare.
+    </p>
+
+    <div class="block">
+      <h3 class="block__title">Che cosa rompe e che cosa no</h3>
+      <div class="callouts">
+        <div class="callout">
+          <h4>Rompe: i singoli coefficienti</h4>
+          <p>Quando due feature si muovono insieme, tante combinazioni diverse dei loro pesi
+            si adattano ai dati quasi altrettanto bene. Gli errori standard si gonfiano, i
+            segni cambiano da una ristima all'altra, e "la feature <i>x</i> vale 0,4" smette
+            di essere una frase difendibile.</p>
+        </div>
+        <div class="callout callout--good">
+          <h4>Lascia stare: le previsioni</h4>
+          <p>La superficie stimata è stabile anche quando i coefficienti non lo sono, quindi
+            l'errore fuori campione si muove appena. Se al modello si chiede solo
+            <code class="code code--inline">y_hat</code>, la collinearità può non costarti
+            niente.</p>
+        </div>
+        <div class="callout">
+          <h4>Rompe: attribuzione e importanza</h4>
+          <p>Gli ensemble di alberi si dividono a caso fra feature correlate, spartendo il
+            merito e facendole sembrare tutte deboli. L'importanza per permutazione le
+            sottostima tutte, perché l'informazione sopravvive nella gemella.</p>
+        </div>
+        <div class="callout callout--good">
+          <h4>Lascia stare: le combinazioni identificabili</h4>
+          <p>Anche a <i>r</i> = 0,99 la <em>somma</em> dei due coefficienti è stimata con
+            precisione; instabile è solo la ripartizione fra i due. E spesso la somma è proprio
+            la quantità che ti serviva.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- LABORATORIO 2 ---------- -->
+    <div class="block" id="collinearita">
+      <h3 class="block__title">Che cosa fa la collinearità a un coefficiente</h3>
+      <p class="block__note">
+        Un caso da manuale, simulato dal vivo:
+        <code class="code code--inline">y = x₁ + x₂ + ε</code>, quindi i due coefficienti veri
+        valgono esattamente 1. Ogni punto è una ristima dello stesso modello su un campione
+        nuovo di 60 righe. Alza la correlazione fra <i>x</i>₁ e <i>x</i>₂ e guarda la nuvola
+        stirarsi lungo la retta dove la <em>somma</em> resta 2: i dati fissano il totale e non
+        dicono quasi niente sulla ripartizione.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <p class="lab__label">corr(x₁, x₂)</p>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="rho" min="0" max="99" value="90" aria-label="Correlazione fra i due predittori">
+            <output class="range__value" id="rho-out" for="rho">0,90</output>
+          </div>
+          <p class="lab__label">Ridge λ</p>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="lambda" min="0" max="60" value="0" aria-label="Penalizzazione ridge">
+            <output class="range__value" id="lambda-out" for="lambda">0,00</output>
+          </div>
+          <button class="btn btn--ghost" id="risimula" type="button">Rifai 240 stime</button>
+        </div>
+
+        <div class="lab__body">
+          <div class="split">
+            <div class="figure">
+              <svg id="nuvola" viewBox="0 0 420 320" role="img" aria-labelledby="nuvola-titolo">
+                <title id="nuvola-titolo">Coefficienti stimati su 240 ristime</title>
+                <g id="nuvola-punti"></g>
+              </svg>
+              <div class="legend">
+                <span><span class="swatch swatch--1"></span> una ristima del modello</span>
+                <span>
+                  <svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="truept"></circle></svg>
+                  valore vero (1, 1)
+                </span>
+              </div>
+              <p class="figcap">Linea tratteggiata: tutte le coppie di coefficienti che sommano a 2. Al crescere della correlazione la nuvola ci collassa sopra.</p>
+            </div>
+
+            <div class="figure">
+              <div class="stats" id="coll-letture" aria-live="polite"></div>
+              <div class="verdict" id="coll-verdetto" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lab__foot">
+          240 campioni indipendenti di <code class="code code--inline">n = 60</code>,
+          <code class="code code--inline">σ = 1</code>. L'errore fuori campione è misurato su
+          200 righe nuove per ogni stima. La penalizzazione ridge aggiunge
+          <code class="code code--inline">λ · n</code> alla diagonale di <i>X</i>′<i>X</i> sui
+          predittori centrati, che per costruzione hanno varianza unitaria: quindi
+          <code class="code code--inline">λ = 0</code> sono i minimi quadrati ordinari e λ è
+          sulla scala per osservazione.
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">Accorgersene — la <i>r</i> a coppie non basta</h3>
+      <p class="block__note">
+        Una dozzina di feature può essere debolmente correlata a due a due e insieme risultare
+        quasi perfettamente dipendente in senso lineare. La correlazione a coppie non lo vede;
+        le diagnostiche qui sotto sì.
+      </p>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Diagnostica</th>
+              <th scope="col">Definizione</th>
+              <th scope="col">Soglia indicativa</th>
+              <th scope="col">Coglie</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="table__pick">|<i>r</i>| a coppie</span></td>
+              <td>Matrice di correlazione delle feature</td>
+              <td>&gt; 0,8 vale un'occhiata</td>
+              <td>Solo la ridondanza a due. Costa poco, ed è il primo passaggio giusto.</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">VIF</span></td>
+              <td><span class="eq">VIF<sub>j</sub> = <span class="frac"><span class="frac__num">1</span><span class="frac__den">1 − <i>R</i><sub>j</sub>²</span></span></span> — si regredisce la feature <i>j</i> su tutte le altre</td>
+              <td>&gt; 5 sospetto, &gt; 10 grave</td>
+              <td>La dipendenza fra più variabili insieme. <span class="eq"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">VIF</span></span></span> è il fattore di cui si gonfia l'errore standard.</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">Indice di condizione</span></td>
+              <td><span class="eq"><i>κ</i> = <span class="rad"><span class="rad__seg">√</span><span class="rad__body"><i>λ</i><sub>max</sub> / <i>λ</i><sub>min</sub></span></span></span> di <i>X</i>′<i>X</i> su colonne standardizzate</td>
+              <td>10–30 moderato, &gt; 30 grave</td>
+              <td>Il condizionamento complessivo in un numero solo. Standardizza prima, altrimenti misura le tue unità; sulla matrice di correlazione è già fatto.</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">Spettro degli autovalori</span></td>
+              <td>Autovalori della matrice di correlazione</td>
+              <td>Uno qualunque vicino a zero</td>
+              <td>Gli autovalori quasi nulli, i cui autovettori nominano direttamente la combinazione colpevole.</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">Varianza fra ristime</span></td>
+              <td>Dispersione dei coefficienti su ricampionamenti bootstrap o su fold di convalida</td>
+              <td>Cambi di segno</td>
+              <td>Il problema nella forma in cui ti arriverà davvero. Vale per qualunque modello, senza assunzioni.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- LABORATORIO 3 ---------- -->
+    <div class="block" id="potatura">
+      <h3 class="block__title">Potare una matrice di correlazione</h3>
+      <p class="block__note">
+        Undici feature di un dataset immobiliare, generate da tre fattori latenti — dimensione,
+        posizione ed età — più il rumore di ciascuna, ed è per questo che la struttura a
+        blocchi è vera e non decorativa. Due coppie sono duplicati esatti per costruzione: una
+        conversione di unità, e una variabile registrata sia come anno sia come età. Muovi la
+        soglia per vedere la potatura greedy al lavoro.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <p class="lab__label">Scarta sopra |r|</p>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="soglia" min="50" max="99" value="85" aria-label="Soglia di correlazione">
+            <output class="range__value" id="soglia-out" for="soglia">0,85</output>
+          </div>
+          <div class="scale-key" aria-hidden="true">
+            <span>−1</span><span class="scale-key__ramp"></span><span>+1</span>
+          </div>
+        </div>
+
+        <div class="lab__body">
+          <div class="heat-scroll">
+            <div class="heat" id="matrice" role="table" aria-label="Matrice di correlazione delle undici feature"></div>
+          </div>
+
+          <div class="stats" id="pota-letture" aria-live="polite"></div>
+
+          <div class="figure">
+            <p class="lab__label">Gruppi di ridondanza a questa soglia</p>
+            <div class="groups" id="gruppi"></div>
+          </div>
+
+          <div class="figure">
+            <p class="lab__label">Risultato</p>
+            <div class="tags" id="pota-lista"></div>
+          </div>
+        </div>
+
+        <div class="lab__foot">
+          La regola è quella greedy standard
+          (<code class="code code--inline">caret::findCorrelation</code>): si prende la coppia
+          più correlata fra quelle rimaste e si scarta quella delle due che ha la correlazione
+          <em>media</em> più alta con tutto il resto ancora in gioco. Ogni numero della matrice
+          è stampato, quindi il colore è un aiuto alla lettura e non l'unica codifica. Il
+          cursore scende fino a 0,50 così puoi vedere la regola potare troppo; nella pratica
+          sotto ~0,85 si sta buttando via informazione vera.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- OTTO TRATTAMENTI ---------- -->
+    <div class="block" id="trattamenti">
+      <h3 class="block__title">Otto trattamenti</h3>
+      <p class="block__note">
+        In ordine dal meno al più invasivo. Il primo non è una battuta: è la risposta giusta
+        più spesso di tutti gli altri messi insieme.
+      </p>
+
+      <div class="moves">
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Non fare niente</p>
+            <p class="move__cost">Costo: nessuno</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Lasciarla stare</h4>
+            <div class="move__body">
+              <p>Se il modello esiste per fare previsioni e nessuno leggerà i suoi
+                coefficienti, le feature correlate non sono un problema da risolvere. L'errore
+                fuori campione è praticamente immutato: il secondo laboratorio mostra l'RMSE di
+                test che resta piatto mentre la dispersione dei coefficienti cresce di un
+                ordine di grandezza.</p>
+              <p>Togliere feature butta via sempre un po' di informazione. Farlo per soddisfare
+                un'assunzione da cui il tuo caso d'uso non dipendeva è una perdita e basta.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Pura previsione; modelli regolarizzati o ad alberi; non c'è nessuna storia di attribuzione da raccontare.</span>
+              <b>Quando no</b>
+              <span>Qualcuno citerà un coefficiente, un'importanza di feature o un "fattore trainante" preso da questo modello.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Selezionare</p>
+            <p class="move__cost">Costo: perdita di informazione</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Scartare una di ogni coppia ridondante</h4>
+            <div class="move__body">
+              <p>La regola greedy a soglia del laboratorio qui sopra. Semplice, riproducibile,
+                e lascia le feature sopravvissute interpretabili esattamente come prima.</p>
+              <p>Scegli la sopravvissuta su criteri che la matrice di correlazione non conosce:
+                quale costa meno da raccogliere, quale è misurata in modo più affidabile, quale
+                è disponibile al momento della previsione, quale un esperto di dominio sa
+                spiegare. Prendere quella più correlata con il target è la regola ovvia ed è la
+                più debole: sovradatta il campione di addestramento e ignora le interazioni.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>La ridondanza è duplicazione vera: conversioni di unità, quasi sinonimi, una media mobile accanto al proprio input.</span>
+              <b>Quando no</b>
+              <span>Le due feature si comportano diversamente nelle code o su una sottopopolazione. Una <i>r</i> complessiva di 0,95 può nascondere proprio il segmento che ti interessa.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Raggruppare</p>
+            <p class="move__cost">Costo: una scelta da tarare</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Raggruppare le feature e tenerne una per gruppo</h4>
+            <div class="move__body">
+              <p>Si fa clustering gerarchico sulla distanza
+                <code class="code code--inline">1 − |r|</code> (con Spearman se le feature sono
+                asimmetriche), si taglia il dendrogramma a un'altezza scelta e si prende un
+                rappresentante — o la media del gruppo — per ciascun cluster.</p>
+              <p>Questo scala dove la potatura a coppie non scala, e produce un oggetto stabile
+                e rivedibile: un elenco di gruppi di ridondanza con un nome, da mettere in mano
+                a un esperto di dominio.
+                <code class="code code--inline">FeatureAgglomeration</code> in scikit-learn e
+                <code class="code code--inline">VarClusHi</code> in Python lo implementano
+                direttamente.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Centinaia di feature con struttura a blocchi: schiere di sensori, indici finanziari, conteggi comportamentali aggregati.</span>
+              <b>Quando no</b>
+              <span>I cluster non hanno un significato che qualcuno sappia nominare: hai solo fatto sembrare fondata una scelta opaca.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Costruire</p>
+            <p class="move__cost">Costo: lavoro di dominio</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Combinarle nella quantità che intendevi</h4>
+            <div class="move__body">
+              <p>Altezza e peso sono collineari; l'indice di massa corporea no. Spesa totale e
+                numero di transazioni sono collineari; lo scontrino medio no. Prezzo e
+                superficie sono collineari; il prezzo al metro quadro no.</p>
+              <p>È la stessa intuizione del secondo laboratorio, presa dall'altro capo: la
+                quantità identificabile era da sempre la somma, quindi stima la somma. Un
+                rapporto, una differenza o un indice rendono esplicita la direzione stabile e
+                buttano via quella instabile, di proposito.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Esiste una combinazione che vuol dire qualcosa. Quando esiste, è la risposta migliore disponibile.</span>
+              <b>Quando no</b>
+              <span>Ti stai inventando una combinazione per far contenta una diagnostica, non per esprimere qualcosa di reale.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Regolarizzare</p>
+            <p class="move__cost">Costo: distorsione, un iperparametro</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Ridge, lasso, elastic net</h4>
+            <div class="move__body">
+              <p><strong>Ridge</strong> è il trattamento diretto: la penalizzazione <i>L</i>2
+                rende di nuovo invertibile la matrice del disegno e restringe le feature
+                correlate <em>insieme</em>, spartendo fra loro l'effetto comune invece di
+                lasciare che la stima scelga a caso una ripartizione. Restano nel modello tutte
+                e due. Muovi il cursore della ridge nel secondo laboratorio e guarda la nuvola
+                contrarsi.</p>
+              <p><strong>Lasso</strong> fa l'opposto: di un gruppo correlato ne tiene grosso
+                modo una e azzera le altre — ma <em>quale</em> cambia da un ricampionamento
+                all'altro. È uno strumento per la sparsità, non per la collinearità, e le sue
+                selezioni non vanno mai lette come importanze. <strong>Elastic net</strong> è il
+                compromesso: la parte <i>L</i>2 restituisce l'effetto di raggruppamento, così le
+                feature correlate entrano ed escono insieme.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Modelli lineari o lineari generalizzati in cui vuoi coefficienti stabili tenendo tutte le feature.</span>
+              <b>Quando no</b>
+              <span>Ti sei dimenticato di standardizzare. Le penalizzazioni dipendono dalla scala; lo scaler si stima solo sul fold di addestramento.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Proiettare</p>
+            <p class="move__cost">Costo: interpretabilità</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">PCA, PLS e compagnia</h4>
+            <div class="move__body">
+              <p>La PCA sostituisce le feature con componenti ortogonali, quindi la
+                collinearità sparisce per costruzione. Il prezzo è totale: il modello non ha più
+                feature con un nome, e ogni spiegazione a valle va data in termini di loading.</p>
+              <p>La PCA è anche <em>non supervisionata</em>: ordina le direzioni per varianza in
+                <i>X</i>, senza guardare <i>y</i>, quindi una direzione a bassa varianza che
+                però prevede il target può essere buttata via. I <strong>minimi quadrati
+                parziali</strong> risolvono esattamente questo estraendo componenti che
+                covariano con <i>y</i>, e di solito ne servono meno.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Blocchi larghi, densi e omogenei — spettri, immagini, embedding — dove le singole colonne non erano comunque interpretabili.</span>
+              <b>Quando no</b>
+              <span>Quello che devi consegnare è una spiegazione. E non stimare mai la proiezione su tutto il dataset prima di dividerlo.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Residualizzare</p>
+            <p class="move__cost">Costo: un ordine arbitrario</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Regredire una sull'altra</h4>
+            <div class="move__body">
+              <p>Si tiene <i>x</i>₁ com'è e si sostituisce <i>x</i>₂ con il suo residuo dopo
+                averla regredita su <i>x</i>₁. Adesso le due sono esattamente incorrelate e
+                restano tutte e due nel modello.</p>
+              <p>L'inganno sta nel significato: la seconda feature adesso è "la parte di
+                <i>x</i>₂ che <i>x</i>₁ non spiega", e tutto l'effetto comune è stato assegnato
+                a <i>x</i>₁ dalla tua scelta dell'ordine. È una mossa difendibile quando c'è una
+                gerarchia vera — una linea di base e una correzione, un controllo e un
+                trattamento — e un gioco di prestigio in tutti gli altri casi.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>C'è un ordine motivato: un fattore noto più un effetto residuo che vuoi isolare.</span>
+              <b>Quando no</b>
+              <span>L'ordine è arbitrario: hai nascosto una decisione di modellazione dentro un passaggio di preparazione dei dati.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="move">
+          <div class="move__side">
+            <p class="move__kind">Attribuire</p>
+            <p class="move__cost">Costo: calcolo</p>
+          </div>
+          <div class="move__main">
+            <h4 class="move__title">Aggiustare la misura di importanza invece delle feature</h4>
+            <div class="move__body">
+              <p>Se la collinearità sta danneggiando solo le tue spiegazioni, cura la
+                spiegazione. Permutare una di due feature correlate lascia l'informazione
+                intatta nella gemella, e allora sembrano irrilevanti tutte e due — e la
+                permutazione crea anche righe che non potrebbero esistere, spingendo il modello
+                fuori dalla distribuzione su cui è stato addestrato.</p>
+              <p>Permuta tutto il <em>gruppo</em> correlato in una volta sola e riporta un
+                numero per il gruppo; oppure usa la permutazione condizionale, che ricampiona
+                dentro strati delle feature correlate. Il risultato onesto è "queste tre
+                feature insieme portano il 12% del segnale", non tre numeretti separati.</p>
+            </div>
+            <div class="move__when">
+              <b>Quando sì</b>
+              <span>Il modello va bene e a fuorviare è solo l'attribuzione — il caso più comune con il gradient boosting.</span>
+              <b>Quando no</b>
+              <span>Ti servono numeri per singola feature per prendere una decisione. Allora torna indietro e sistema l'insieme delle feature.</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">Scegliere il trattamento in base a cosa devi al lettore</h3>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Il tuo obiettivo</th>
+              <th scope="col">Prima mossa</th>
+              <th scope="col">Ripiego</th>
+              <th scope="col">Da evitare</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Accuratezza predittiva, scatola nera</td>
+              <td><span class="table__pick">Niente</span></td>
+              <td>Ridge o un ensemble di alberi</td>
+              <td>PCA troncata: perderesti segnale senza guadagnare niente</td>
+            </tr>
+            <tr>
+              <td>Coefficienti interpretabili</td>
+              <td><span class="table__pick">Combinare in una quantità sensata</span></td>
+              <td>Ridge, poi riportare l'effetto di gruppo</td>
+              <td>Lasso: la sua selezione dentro un gruppo correlato non è stabile</td>
+            </tr>
+            <tr>
+              <td>Inferenza causale o di policy</td>
+              <td><span class="table__pick">Sistemare il disegno</span> — più variabilità, o una strategia di identificazione diversa</td>
+              <td>Riportare ciò che è identificato: la somma, il contrasto</td>
+              <td>Qualunque potatura automatica. Togliere un confondente per abbassare il VIF crea distorsione</td>
+            </tr>
+            <tr>
+              <td>Importanza delle feature per chi ti ascolta</td>
+              <td><span class="table__pick">Importanza per permutazione a gruppi</span></td>
+              <td>Prima il clustering, poi il resoconto per cluster</td>
+              <td>Le importanze grezze basate sul gain di un albero potenziato</td>
+            </tr>
+            <tr>
+              <td>Ridurre i costi — meno colonne da raccogliere</td>
+              <td><span class="table__pick">Clustering, tenendo la più economica per cluster</span></td>
+              <td>Potatura greedy a soglia</td>
+              <td>Ridge: tiene tutto, che è l'opposto dell'obiettivo</td>
+            </tr>
+            <tr>
+              <td>Dati larghi, <i>p</i> maggiore di <i>n</i></td>
+              <td><span class="table__pick">PLS o elastic net</span></td>
+              <td>PCA con il numero di componenti scelto per convalida incrociata</td>
+              <td>VIF: non è definito quando la matrice del disegno è singolare</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">Trappole</h3>
+      <div class="callouts">
+        <div class="callout">
+          <h4>La trappola delle variabili dummy</h4>
+          <p>Un insieme completo di colonne one-hot somma a una costante, quindi con
+            l'intercetta la matrice del disegno è esattamente singolare. Togli un livello,
+            oppure stima senza intercetta. Questa è collinearità perfetta, non quasi-perfetta,
+            e nessuna regola a soglia sulle coppie la farà emergere — il VIF e lo spettro degli
+            autovalori sì.</p>
+        </div>
+        <div class="callout">
+          <h4>Potare su tutto il dataset</h4>
+          <p>Selezionare le feature per correlazione prima di dividere i dati fa entrare
+            l'insieme di test nella scelta. La selezione delle feature fa parte della pipeline e
+            va dentro il ciclo di convalida incrociata.</p>
+        </div>
+        <div class="callout">
+          <h4>Correlazione non è ridondanza</h4>
+          <p>Due feature a <i>r</i> = 0,9 possono servire lo stesso tutte e due, se un modello
+            non lineare usa la loro <em>differenza</em>. La ridondanza si conferma togliendo la
+            feature e misurando come cambia l'errore di convalida, non leggendo la matrice.</p>
+        </div>
+        <div class="callout">
+          <h4>Una correlazione altissima con il target</h4>
+          <p>Una <i>r</i> di 0,98 contro l'etichetta di solito non è una gran feature: è una
+            fuga di informazione. Prima di festeggiare, controlla se quel valore fosse davvero
+            disponibile al momento della previsione.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">Note</h3>
+      <p class="block__note">
+        Leggi i numeri come illustrazioni del meccanismo, non come misure di qualcosa di reale:
+        ogni campione di questa pagina viene estratto da un generatore con seme nel momento in
+        cui la apri.
+      </p>
+      <p class="block__note">
+        Implementazioni che vale la pena conoscere:
+        <code class="code code--inline">scipy.stats</code> per Pearson, Spearman e Kendall;
+        <code class="code code--inline">dcor</code> per la correlazione di distanza;
+        <code class="code code--inline">sklearn.feature_selection.mutual_info_regression</code>
+        per lo stimatore dell'informazione mutua sui <i>k</i> vicini più prossimi;
+        <code class="code code--inline">statsmodels.stats.outliers_influence.variance_inflation_factor</code>
+        per il VIF; <code class="code code--inline">sklearn.inspection.permutation_importance</code>
+        per la correzione dell'attribuzione.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<site-footer></site-footer>
+
+<script src="/assets/js/tools/correlazione.js"></script>
+</body>
+</html>
