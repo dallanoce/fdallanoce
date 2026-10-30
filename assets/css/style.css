@@ -19,10 +19,11 @@
    8. Voci CV        — esperienze e formazione
    9. Form           — campi, bottoni, risultati (per i tool)
    10. Tool grandi   — pannelli, tabelle, barre, liste con spunta
-   11. Guida         — parti, formule, schede, laboratori (guida correlazione)
-   12. Footer
-   13. Utility
-   14. Stampa
+   11. Guida         — parti, formule, schede, laboratori (guide lunghe)
+   12. Codice        — listati, tensori, gettoni, curve (spiegazione di nanoGPT)
+   13. Footer
+   14. Utility
+   15. Stampa
    ========================================================================== */
 
 
@@ -1097,10 +1098,9 @@ a:hover { color: var(--accent-deep); }
    componenti servono all'altro tipo di tool che c'è sul sito: una guida
    lunga da leggere, con dentro dei laboratori con cui giocare.
 
-   Li usa oggi la guida alla correlazione. Sono pensati per essere riusabili
-   da un'eventuale seconda guida, ed è per questo che stanno qui e non in un
-   foglio a parte: il sito ha un foglio di stile solo, e i colori vengono
-   tutti dai token della sezione 1, così anche questa pagina cambia tema
+   Li usano la guida alla correlazione e Inside nanoGPT. Stanno qui e non in
+   un foglio a parte: il sito ha un foglio di stile solo, e i colori vengono
+   tutti dai token della sezione 1, così anche queste pagine cambiano tema
    insieme al resto.
    ========================================================================== */
 
@@ -1626,7 +1626,318 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   12. FOOTER
+   12. CODICE — listati, tensori, gettoni, curve
+
+   La sezione 11 serve a una guida che parla di dati. Questi componenti
+   servono a una guida che spiega del codice: il listato con la riga che si
+   sta guardando, le matrici con il loro nome e la loro forma, il testo
+   spezzato in gettoni con il loro numero.
+
+   Li usa Inside nanoGPT. Come nella sezione 11, i colori sono solo token:
+   il JavaScript assegna classi e passa quantità, mai colori.
+   ========================================================================== */
+
+
+/* --- Listato --------------------------------------------------------------
+   Codice vero, con i suoi numeri di riga. Il numero non è testo della
+   pagina: lo disegna ::before leggendo data-riga, così selezionando il
+   codice per copiarlo non ci si porta dietro anche i numeri.
+
+   Ogni riga è un blocco, perché la riga corrente si evidenzia per intero;
+   per lo stesso motivo il <code> è largo quanto la riga più lunga, e lo
+   sfondo dell'evidenziazione arriva fino in fondo anche scorrendo.
+
+   Fra uno span di riga e il successivo non ci deve essere testo: dentro un
+   <pre> anche un a capo è testo, e diventerebbe una riga vuota in più. Per
+   tenere comunque una riga di codice per riga di sorgente, si va a capo
+   dentro il tag di chiusura:  </span⏎><span class="listing__line" …>  */
+
+.listing {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.7;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3) 0;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.listing code {
+  display: block;
+  min-width: max-content;
+  font: inherit;
+}
+
+.listing__line {
+  display: block;
+  white-space: pre;
+  padding-right: var(--s-4);
+  border-left: 2px solid transparent;
+  transition: background var(--speed) ease;
+}
+
+.listing__line::before {
+  content: attr(data-riga);
+  display: inline-block;
+  width: 4.5em;
+  padding-right: 1.5em;
+  text-align: right;
+  color: var(--ink-3);
+}
+
+.listing__line.is-current {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--ink);
+}
+.listing__line.is-current::before { color: var(--accent); }
+
+/* Le righe saltate fra due pezzi dello stesso file */
+.listing__line--gap { color: var(--ink-3); }
+
+.listing__comment { color: var(--ink-3); }
+.listing__line.is-current .listing__comment { color: var(--ink-2); }
+
+/* Da dove viene il listato: file, righe e link al sorgente */
+.listing__source {
+  margin: var(--s-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+
+/* --- Tensori ---------------------------------------------------------------
+   Una fila di matrici con in mezzo l'operazione che le lega: x @ Wᵀ = y.
+   Ogni matrice ha sopra il nome che ha nel codice e la sua forma. Sugli
+   schermi stretti la fila va a capo, e una matrice troppo larga scorre
+   dentro la propria .heat-scroll invece di allargare la pagina. */
+
+.tensors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+.tensor {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tensor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+}
+
+.tensor__name { font-family: var(--font-mono); font-size: var(--t-sm); color: var(--ink); }
+.tensor__shape { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-3); }
+
+.tensors__op {
+  font-family: var(--font-mono);
+  font-size: var(--t-lg);
+  color: var(--ink-3);
+}
+
+/* Una .tensor può contenere anche una .heat-scroll: la sua larghezza
+   massima è quella della fila, non quella della matrice. */
+.tensor .heat-scroll { max-width: 100%; }
+
+
+/* --- Varianti della matrice colorata (sezione 11) --------------------------
+   --compact: celle piccole senza numero, per i pesi e le matrici larghe,
+   dove conta la forma più del valore. Il valore resta nel title e
+   nell'aria-label della cella.
+   Le altre sono stati di una cella: mascherata (−∞ nell'attenzione
+   causale), selezionata, attenuata perché non c'entra con il passo. */
+
+.heat--compact { gap: 1px; }
+.heat--compact .heat__cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 1px;
+  font-size: 0;
+}
+.heat--compact .heat__rowhead { line-height: 1; padding-right: 0.4em; }
+
+/* Le celle su cui si clicca sono <button>: si raggiungono con il tab e
+   si attivano con Invio. Qui si toglie solo l'aspetto del bottone. */
+button.heat__cell {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.heat__cell.is-masked {
+  color: var(--ink-3);
+  background: var(--surface-2);
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--rule) 4px 5px);
+}
+
+.heat__cell.is-focus { box-shadow: inset 0 0 0 2px var(--ink); }
+.heat__cell.is-dim { opacity: 0.3; }
+
+.heat__rowhead.is-focus,
+.heat__colhead.is-focus { color: var(--ink); font-weight: 500; }
+
+/* Una colonna in più a destra, fuori dalla matrice: la somma di riga. */
+.heat__note {
+  display: flex;
+  align-items: center;
+  padding-left: 0.6em;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Fascia sopra le colonne che dice a chi appartengono: q | k | v, oppure
+   testa 0 | testa 1. Una cella di fascia per ogni colonna. */
+.heat__band { height: 4px; border-radius: 1px; align-self: end; }
+.heat__band--1 { background: var(--serie-1); }
+.heat__band--2 { background: var(--serie-2); }
+.heat__band--3 { background: var(--serie-3); }
+
+
+/* --- Lettura di un calcolo -------------------------------------------------
+   Un prodotto scalare scritto termine per termine. A differenza di
+   .formula va a capo: otto termini non ci stanno su un telefono, e una
+   formula centrata che sborda si taglia a sinistra. */
+
+.readout {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.8;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+  overflow-wrap: anywhere;
+}
+.readout b { color: var(--ink); font-weight: 500; }
+
+
+/* --- Gettoni ---------------------------------------------------------------
+   Il testo come lo vede il modello: un carattere e il suo numero. Lo
+   spazio e l'a capo sono disegnati (␣ ↵) perché altrimenti sparirebbero, e
+   in grigio perché non si confondano con caratteri veri. */
+
+.tokens { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+
+.token {
+  display: inline-grid;
+  justify-items: center;
+  min-width: 2.1rem;
+  padding: var(--s-1) var(--s-2);
+  font-family: var(--font-mono);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.token__ch { font-size: var(--t-sm); line-height: 1.3; color: var(--ink); white-space: pre; }
+.token__ch.is-ws { color: var(--ink-3); }
+
+.token__id {
+  font-size: var(--t-xs);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+/* Stati: dentro il contesto, il carattere da prevedere, tagliato fuori dalla
+   finestra di block_size, fuori vocabolario. */
+.token.is-ctx { border-color: var(--accent); background: var(--accent-soft); }
+.token.is-target { border-color: var(--warm); background: var(--warm-soft); }
+.token.is-out { opacity: 0.4; border-style: dashed; }
+.token.is-unknown { border-color: var(--warm); border-style: dashed; }
+.token.is-unknown .token__ch { color: var(--warm); }
+
+/* Il vocabolario intero: 65 gettoni, più stretti */
+.tokens--dense .token { min-width: 1.75rem; padding: 0 var(--s-1); }
+
+
+/* --- Barre strette ---------------------------------------------------------
+   .bars della sezione 10 con l'etichetta corta (un carattere) e la barra
+   evidenziata per il carattere estratto o per quello giusto. */
+
+.bars--compact .bar { grid-template-columns: 2.5rem minmax(0, 1fr) 4rem; gap: var(--s-2); }
+.bar--pick .bar__fill { background: var(--warm); }
+.bar--pick .bar__value { color: var(--ink); }
+
+.bar__label { font-family: var(--font-mono); color: var(--ink-2); white-space: pre; }
+
+
+/* --- Curve e barre nei grafici SVG ----------------------------------------
+   Si aggiungono alla cornice della sezione 11 (.ax, .gridline, .axlab). */
+
+.curve { fill: none; stroke: var(--serie-1); stroke-width: 2; stroke-linejoin: round; }
+.curve--2 { stroke: var(--serie-2); }
+.curve--3 { stroke: var(--serie-3); stroke-dasharray: 4 3; stroke-width: 1.5; }
+.cursor { fill: none; stroke: var(--warm); stroke-width: 1.5; }
+.dot { fill: var(--warm); }
+
+.vbar { fill: var(--serie-1); }
+.vbar--neg { fill: var(--serie-2); }
+.vbar--ghost { fill: var(--ink-3); fill-opacity: 0.3; }
+.vbar--3 { fill: var(--serie-3); fill-opacity: 0.45; }
+
+
+/* --- Listato accanto alla spiegazione --------------------------------------
+   .split della sezione 11 con più spazio a sinistra: le righe di codice
+   sono lunghe, il testo che le spiega no. Sotto i 54rem torna una colonna
+   sola, come .split; la regola va ripetuta perché questa, venendo dopo,
+   vincerebbe anche sulla media query della sezione 11. */
+
+.split--code { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 54rem) { .split--code { grid-template-columns: 1fr; } }
+
+
+/* --- Un nome di codice dentro un'etichetta in maiuscolo --------------------
+   .lab__label, .stat__key e le intestazioni di tabella sono in maiuscolo.
+   Un nome di variabile lì dentro deve restare com'è: learning_rate e
+   LEARNING_RATE non sono la stessa cosa, e μ in maiuscolo diventa una M.
+   Va sull'etichetta intera se è tutta codice, altrimenti su uno span. */
+
+.ident { text-transform: none; }
+
+
+/* --- Testo generato --------------------------------------------------------
+   .code della sezione 7 che va a capo: il testo che scrive il modello non è
+   codice, e farlo scorrere in orizzontale sarebbe solo scomodo. */
+
+.code--wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+
+/* --- Voce rientrata in un indice -------------------------------------------
+   Una riga di .index (sezione 6) che sta dentro quella sopra: i moduli di
+   un Block nella mappa dell'architettura. */
+
+.index__row--nested { padding-left: var(--s-7); }
+.index__row--nested::before { left: var(--s-5); }
+
+
+/* --- Un passo di una spiegazione ------------------------------------------
+   Il testo di un passo del laboratorio sull'attenzione. Senza JavaScript
+   si leggono tutti in fila; con, se ne vede uno alla volta. */
+
+.step { display: grid; gap: var(--s-3); }
+.step__title { font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+.step p { margin: 0; color: var(--ink-2); font-size: var(--t-sm); }
+
+
+/* ==========================================================================
+   13. FOOTER
    ========================================================================== */
 
 .footer {
@@ -1651,7 +1962,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   13. UTILITY — poche e mirate
+   14. UTILITY — poche e mirate
    ========================================================================== */
 
 .stack-sm > * + * { margin-top: var(--s-3); }
@@ -1666,7 +1977,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   14. STAMPA
+   15. STAMPA
    Quello che si stampa è il contenuto: testata, footer e comandi restano
    fuori. Un tool marca con .no-print i suoi moduli e i suoi bottoni, e con
    .print-only le righe che hanno senso solo sul foglio (un'intestazione con
@@ -1733,6 +2044,7 @@ a:hover { color: var(--accent-deep); }
   .lab__bar, .chip, .btn { display: none !important; }
   .lab { break-inside: avoid; }
   .plate, .move, .callout, .table-wrap, .formula { break-inside: avoid; }
+  .listing, .tensor, .tokens, .readout { break-inside: avoid; }
   .part { break-before: page; }
   .part:first-of-type { break-before: auto; }
 

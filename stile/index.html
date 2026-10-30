@@ -600,9 +600,10 @@ nodo.classList.add("is-on");</pre>
 
   <p class="figcap">
     Componenti della sezione 11 del foglio di stile. Servono a un tool che è
-    una guida da leggere invece che un modulo da compilare: li usa oggi
-    <a href="/it/strumenti/correlazione/">Correlation Field Guide</a>. Una
-    pagina che li usa vuole anche <span class="mono">wrap--wide</span> sul
+    una guida da leggere invece che un modulo da compilare: li usano
+    <a href="/it/strumenti/correlazione/">Correlation Field Guide</a> e
+    <a href="/it/strumenti/nanogpt/">Inside nanoGPT</a>. Una pagina che li
+    usa vuole anche <span class="mono">wrap--wide</span> sul
     <span class="mono">&lt;main&gt;</span>.
   </p>
 
@@ -921,6 +922,229 @@ nodo.classList.add("is-on");</pre>
 &lt;code class="code code--inline"&gt;nome.di.funzione&lt;/code&gt;</pre>
 
 
+  <p class="eyebrow">Codice: listato</p>
+
+  <p class="figcap">
+    Componenti della sezione 12 del foglio di stile, per una guida che spiega
+    del codice. Li usa <a href="/it/strumenti/nanogpt/">Inside nanoGPT</a>.
+    Il listato è codice vero con i suoi numeri di riga, che il CSS legge da
+    <span class="mono">data-riga</span>: non sono testo, quindi non finiscono
+    negli appunti quando si copia. La riga che si sta spiegando prende
+    <span class="mono">is-current</span>.
+  </p>
+
+  <pre class="listing"><code><span class="listing__line" data-riga="103">def forward(self, x):</span
+><span class="listing__line is-current" data-riga="104">    x = x + self.attn(self.ln_1(x))</span
+><span class="listing__line" data-riga="105">    x = x + self.mlp(self.ln_2(x))</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="193">    return logits, loss <span class="listing__comment"># un commento</span></span></code></pre>
+  <p class="listing__source">model.py · L103–L105 · <a href="#">sorgente</a></p>
+
+  <pre class="code">&lt;pre class="listing"&gt;&lt;code&gt;&lt;span class="listing__line" data-riga="103"&gt;def forward(self, x):&lt;/span
+&gt;&lt;span class="listing__line is-current" data-riga="104"&gt;    x = …&lt;/span
+&gt;&lt;span class="listing__line listing__line--gap"&gt;    ⋮&lt;/span
+&gt;&lt;span class="listing__line" data-riga="193"&gt;… &lt;span class="listing__comment"&gt;# commento&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p class="listing__source"&gt;model.py · L103–L105 · &lt;a href="…"&gt;sorgente&lt;/a&gt;&lt;/p&gt;</pre>
+
+  <p class="figcap">
+    Attenzione agli a capo: dentro un <span class="mono">&lt;pre&gt;</span> anche
+    un a capo fra due span è testo, e diventerebbe una riga vuota. Si va a capo
+    dentro il tag di chiusura, <span class="mono">&lt;/span⏎&gt;</span>, come qui sopra.
+  </p>
+
+
+  <p class="eyebrow">Codice: tensori</p>
+
+  <p class="figcap">
+    Una fila di matrici con il nome che hanno nel codice, la loro forma e in
+    mezzo l'operazione. Le matrici sono le <span class="mono">.heat</span> della
+    sezione 11, in due misure: con il numero stampato, oppure
+    <span class="mono">--compact</span>, solo colore, per i pesi e le matrici
+    larghe. Gli stati di cella sono <span class="mono">is-masked</span> (−∞
+    nell'attenzione causale), <span class="mono">is-focus</span> e
+    <span class="mono">is-dim</span>; <span class="mono">.heat__band</span> è la
+    fascia che dice a chi appartengono le colonne, <span class="mono">.heat__note</span>
+    la colonna fuori matrice a destra.
+  </p>
+
+  <div class="tensors">
+    <div class="tensor">
+      <div class="tensor__head"><span class="tensor__name">att</span><span class="tensor__shape">(T, T)</span></div>
+      <div class="heat-scroll">
+        <div class="heat" id="demo-tensore" role="table" aria-label="Esempio di tensore">
+          <div class="heat__cell" role="cell">1,00</div>
+          <button class="heat__cell is-masked" type="button" aria-label="mascherata">−∞</button>
+          <div class="heat__note" role="cell">Σ 1</div>
+          <div class="heat__cell is-focus" role="cell">0,48</div>
+          <div class="heat__cell" role="cell">0,52</div>
+          <div class="heat__note" role="cell">Σ 1</div>
+        </div>
+      </div>
+    </div>
+    <span class="tensors__op">@</span>
+    <div class="tensor">
+      <div class="tensor__head"><span class="tensor__name">v</span><span class="tensor__shape">(T, hs)</span></div>
+      <div class="heat heat--compact" id="demo-compatta" role="table" aria-label="Esempio di matrice compatta">
+        <div class="heat__band heat__band--1"></div><div class="heat__band heat__band--1"></div><div class="heat__band heat__band--2"></div><div class="heat__band heat__band--2"></div>
+        <div class="heat__cell" role="cell"></div><div class="heat__cell" role="cell"></div><div class="heat__cell" role="cell"></div><div class="heat__cell is-dim" role="cell"></div>
+        <div class="heat__cell" role="cell"></div><div class="heat__cell" role="cell"></div><div class="heat__cell" role="cell"></div><div class="heat__cell is-dim" role="cell"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout"><b>att[1, 0]</b> = 0,31·0,12 + −0,08·0,44 + … = <b>0,48</b></div>
+
+  <pre class="code">&lt;div class="tensors"&gt;
+  &lt;div class="tensor"&gt;
+    &lt;div class="tensor__head"&gt;
+      &lt;span class="tensor__name"&gt;att&lt;/span&gt;&lt;span class="tensor__shape"&gt;(T, T)&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="heat-scroll"&gt;&lt;div class="heat" role="table"&gt;…&lt;/div&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;span class="tensors__op"&gt;@&lt;/span&gt;
+  &lt;div class="tensor"&gt;…&lt;div class="heat heat--compact"&gt;…&lt;/div&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- celle: le costruisce il JavaScript --&gt;
+&lt;button class="heat__cell is-masked" type="button" aria-label="…"&gt;−∞&lt;/button&gt;
+&lt;div class="heat__cell is-focus"&gt;…&lt;/div&gt;   &lt;div class="heat__cell is-dim"&gt;…&lt;/div&gt;
+&lt;div class="heat__band heat__band--1"&gt;&lt;/div&gt;   &lt;div class="heat__note"&gt;Σ 1&lt;/div&gt;
+
+&lt;div class="readout"&gt;&lt;b&gt;att[1, 0]&lt;/b&gt; = … = &lt;b&gt;0,48&lt;/b&gt;&lt;/div&gt;</pre>
+
+  <p class="figcap">
+    <span class="mono">.readout</span> è un calcolo scritto termine per termine.
+    A differenza di <span class="mono">.formula</span> va a capo: otto termini su un
+    telefono non ci stanno. Le celle su cui si clicca sono
+    <span class="mono">&lt;button&gt;</span>, così si raggiungono anche da tastiera.
+  </p>
+
+
+  <p class="eyebrow">Codice: gettoni</p>
+
+  <div class="tokens">
+    <span class="token"><span class="token__ch">F</span><span class="token__id">18</span></span>
+    <span class="token is-ctx"><span class="token__ch">i</span><span class="token__id">47</span></span>
+    <span class="token is-target"><span class="token__ch">r</span><span class="token__id">56</span></span>
+    <span class="token"><span class="token__ch is-ws">␣</span><span class="token__id">1</span></span>
+    <span class="token is-out"><span class="token__ch is-ws">↵</span><span class="token__id">0</span></span>
+    <span class="token is-unknown"><span class="token__ch">é</span><span class="token__id">?</span></span>
+  </div>
+
+  <pre class="code">&lt;div class="tokens"&gt;
+  &lt;span class="token"&gt;&lt;span class="token__ch"&gt;F&lt;/span&gt;&lt;span class="token__id"&gt;18&lt;/span&gt;&lt;/span&gt;
+  &lt;span class="token is-ctx"&gt;…&lt;/span&gt;       &lt;!-- dentro il contesto --&gt;
+  &lt;span class="token is-target"&gt;…&lt;/span&gt;    &lt;!-- il carattere da prevedere --&gt;
+  &lt;span class="token is-out"&gt;…&lt;/span&gt;       &lt;!-- tagliato fuori dalla finestra --&gt;
+  &lt;span class="token is-unknown"&gt;…&lt;/span&gt;   &lt;!-- fuori vocabolario --&gt;
+&lt;/div&gt;
+&lt;!-- spazio e a capo: ␣ e ↵ in &lt;span class="token__ch is-ws"&gt; --&gt;
+&lt;!-- .tokens--dense per un vocabolario intero --&gt;</pre>
+
+
+  <p class="eyebrow">Codice: barre strette, curve, testo generato</p>
+
+  <div class="bars bars--compact">
+    <div class="bar">
+      <span class="bar__label">t</span>
+      <div class="bar__track"><div class="bar__fill" id="demo-barra-3"></div></div>
+      <div class="bar__value">0,61</div>
+    </div>
+    <div class="bar bar--pick">
+      <span class="bar__label">␣</span>
+      <div class="bar__track"><div class="bar__fill" id="demo-barra-4"></div></div>
+      <div class="bar__value">0,22</div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <svg viewBox="0 0 240 80" role="img" aria-label="Esempio di curve">
+      <line class="ax" x1="10" y1="70" x2="230" y2="70"></line>
+      <path class="curve" d="M10 70 L60 20 L230 60"></path>
+      <path class="curve curve--2" d="M10 60 L120 40 L230 30"></path>
+      <path class="curve curve--3" d="M10 50 L230 50"></path>
+      <line class="cursor" x1="120" y1="10" x2="120" y2="70"></line>
+      <circle class="dot" cx="120" cy="40" r="3"></circle>
+      <rect class="vbar" x="150" y="62" width="6" height="8"></rect>
+      <rect class="vbar vbar--neg" x="160" y="58" width="6" height="12"></rect>
+      <rect class="vbar vbar--ghost" x="170" y="54" width="6" height="16"></rect>
+      <rect class="vbar vbar--3" x="180" y="50" width="6" height="20"></rect>
+    </svg>
+  </div>
+
+  <pre class="code code--wrap">ROMEO:
+The the thin thar yit be wist no o ath, e questo è il testo che scrive il modello: va a capo da solo.</pre>
+
+  <pre class="code">&lt;div class="bars bars--compact"&gt;
+  &lt;div class="bar bar--pick"&gt;
+    &lt;span class="bar__label"&gt;␣&lt;/span&gt;
+    &lt;div class="bar__track"&gt;&lt;div class="bar__fill"&gt;&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="bar__value"&gt;0,22&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- nei grafici SVG, oltre a .ax .gridline .axlab della sezione 11 --&gt;
+&lt;path class="curve"&gt;   .curve--2   .curve--3 (tratteggiata)
+&lt;line class="cursor"&gt;  &lt;circle class="dot"&gt;
+&lt;rect class="vbar"&gt;    .vbar--neg   .vbar--ghost   .vbar--3
+
+&lt;pre class="code code--wrap"&gt;testo generato&lt;/pre&gt;</pre>
+
+
+  <p class="eyebrow">Codice: indice rientrato e passi</p>
+
+  <nav class="index" aria-label="Esempio di indice rientrato">
+    <a class="index__row" href="#">
+      <span class="index__main"><span class="index__label">Block</span></span>
+      <span class="index__meta">(B, T, C)</span>
+    </a>
+    <a class="index__row index__row--nested" href="#">
+      <span class="index__main"><span class="index__label">ln_1 → attn → +</span></span>
+      <span class="index__meta">(B, T, C)</span>
+    </a>
+  </nav>
+
+  <div class="step">
+    <p class="lab__label">Passo 3 di 10</p>
+    <h4 class="step__title">Titolo del passo</h4>
+    <p>Il testo del passo. Senza JavaScript i passi si leggono tutti in fila; con, se ne vede uno alla volta.</p>
+  </div>
+
+  <pre class="code">&lt;a class="index__row index__row--nested" href="…"&gt;…&lt;/a&gt;
+
+&lt;div class="step" data-righe="67"&gt;
+  &lt;p class="lab__label"&gt;Passo 3 di 10&lt;/p&gt;
+  &lt;h4 class="step__title"&gt;…&lt;/h4&gt;
+  &lt;p&gt;…&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;!-- listato a sinistra, spiegazione a destra: .split con più spazio al codice --&gt;
+&lt;div class="split split--code"&gt;…&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Codice: nomi dentro le etichette</p>
+
+  <p class="figcap">
+    Le etichette dei laboratori, delle tessere e delle tabelle sono in
+    maiuscolo. Un nome di variabile lì dentro deve restare com'è:
+    <span class="mono">learning_rate</span> non è
+    <span class="mono">LEARNING_RATE</span>, e una μ in maiuscolo diventa una M.
+    <span class="mono">.ident</span> toglie il maiuscolo: sull'etichetta intera
+    se è tutta codice, su uno span se è mescolata a parole.
+  </p>
+
+  <div class="lab__bar">
+    <p class="lab__label">Senza</p>
+    <p class="lab__label">learning_rate</p>
+    <p class="lab__label">Con</p>
+    <p class="lab__label ident">learning_rate</p>
+    <p class="lab__label">Varianza di <span class="ident">x̂</span></p>
+  </div>
+
+  <pre class="code">&lt;label class="lab__label ident" for="…"&gt;learning_rate&lt;/label&gt;
+&lt;th&gt;Parametro (&lt;span class="ident"&gt;named_parameters&lt;/span&gt;)&lt;/th&gt;</pre>
+
+
   <p class="eyebrow">Colori</p>
 
   <div class="prose">
@@ -956,6 +1180,22 @@ nodo.classList.add("is-on");</pre>
     const cella = document.querySelectorAll("#demo-matrice .heat__cell")[i];
     cella.style.setProperty("--tinta", "var(--heat-" + v[1] + ")");
     cella.style.setProperty("--mescola", (v[0] * 0.55).toFixed(1) + "%");
+  });
+
+  document.getElementById("demo-barra-3").style.setProperty("--quota", "61%");
+  document.getElementById("demo-barra-4").style.setProperty("--quota", "22%");
+
+  document.getElementById("demo-tensore").style.gridTemplateColumns = "repeat(2, 38px) auto";
+  [[100, "pos"], [0, "pos"], [48, "pos"], [52, "pos"]].forEach(function (v, i) {
+    const cella = document.querySelectorAll("#demo-tensore .heat__cell")[i];
+    cella.style.setProperty("--tinta", "var(--heat-" + v[1] + ")");
+    cella.style.setProperty("--mescola", (v[0] * 0.55).toFixed(1) + "%");
+  });
+  document.getElementById("demo-compatta").style.gridTemplateColumns = "repeat(4, 11px)";
+  [80, 20, 55, 40, 10, 90, 30, 60].forEach(function (v, i) {
+    const cella = document.querySelectorAll("#demo-compatta .heat__cell")[i];
+    cella.style.setProperty("--tinta", "var(--heat-" + (i % 3 ? "pos" : "neg") + ")");
+    cella.style.setProperty("--mescola", v + "%");
   });
 
   document.getElementById("demo-toast").addEventListener("click", function () {
