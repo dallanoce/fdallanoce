@@ -50,6 +50,7 @@ reasoning when it is not obvious.
 ├── 404.html                       error page, deduce la lingua dall'URL sbagliato
 ├── _template.it.html              starting point for a new Italian page
 ├── _template.en.html              …and its English twin
+├── .assetsignore                  what the Cloudflare deploy must NOT publish (see Deployment)
 ├── it/                            albero italiano
 │   ├── index.html
 │   ├── cv/index.html
@@ -325,7 +326,7 @@ Written down so future changes do not drift.
   serve someone who matches no language, and the answer is always English. It is
   not a copy-paste mistake.
 - **The `hreflang` and `canonical` URLs are root-relative** (`/en/cv/`), because
-  the custom domain has not been chosen. The switcher works fine with these.
+  they were written before the domain existed. The switcher works fine with these.
   Google, however, wants fully-qualified `hreflang` URLs — see the TODOs.
 - **Changing language navigates.** The two languages are two documents, so the
   switcher does a real page load. There is no partial state to reason about.
@@ -394,11 +395,25 @@ Written down so future changes do not drift.
 
 ## Deployment
 
-Cloudflare Pages, connected to this repo. Build command: **empty**. Output
-directory: the repository root. Every push to the default branch publishes.
+A Cloudflare **Worker with static assets** (not Pages), connected to this repo
+through Workers Builds, served at `fdallanoce.com`. There is no wrangler config
+file in the repo: everything is set in the Cloudflare dashboard, under the
+Worker's Settings → Build.
 
-The custom domain has not been chosen yet, so the site currently lives on a
-`*.pages.dev` subdomain.
+- **Build command:** empty.
+- **Deploy command** (the `main` branch): `npx wrangler deploy`. With no
+  config, wrangler recognises a static site and uploads the repository root.
+- **Version command** (every other branch, for previews):
+  `npx wrangler versions upload --assets=. --name=fdallanoce --compatibility-date=2026-10-23`.
+  Unlike `deploy`, `versions upload` does not guess: without `--assets` it fails
+  with "Missing entry-point to Worker script or to assets directory".
+
+**Because the whole repository root is uploaded, `.assetsignore` decides what
+stays private.** It lists what is in the repo but is not the site — `README.md`,
+`docs/`, `.claude/`, `.git`, the two templates. Anything new at the root that is
+not a page (notes, scripts, config) has to be added there, or it is public at
+`fdallanoce.com/<name>`. It is the only Cloudflare-specific file in the repo,
+and inert on any other host.
 
 ## Before finishing a change
 
@@ -429,6 +444,6 @@ The custom domain has not been chosen yet, so the site currently lives on a
   files (currently commented out). Decide whether there is one PDF or one per
   language
 - Add a favicon
-- Choose and attach the custom domain. When it exists, make the `hreflang` and
-  `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative
+- The domain is `fdallanoce.com`. Make the `hreflang` and `canonical` URLs
+  absolute (`https://fdallanoce.com/it/cv/`): Google ignores relative
   `hreflang`. Nothing else needs to change — that is why paths are absolute

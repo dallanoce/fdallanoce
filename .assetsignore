@@ -1,0 +1,28 @@
+# .assetsignore — i file del repository che NON vanno pubblicati sul sito
+#
+# Il sito è un Worker di Cloudflare con solo asset statici: il deploy
+# carica come sito l'intera radice del repository. Senza questo elenco
+# chiunque potrebbe aprire fdallanoce.com/README.md, /.claude/CLAUDE.md o
+# le note in /docs/. Lo legge wrangler, con la stessa sintassi di
+# .gitignore, sia in "wrangler deploy" sia in "wrangler versions upload".
+#
+# È l'unico file del repository che parla con Cloudflare, ed è innocuo:
+# spostando il sito su un altro host non fa niente, e lì andrebbe
+# sostituito con il meccanismo equivalente di quell'host.
+#
+# Quando aggiungi alla radice qualcosa che non è una pagina del sito —
+# appunti, script, configurazioni — aggiungilo anche qui.
+
+# Git e gli strumenti di sviluppo
+.git
+.gitignore
+.DS_Store
+.claude
+
+# Documentazione per chi lavora sul sito, non per chi lo visita
+README.md
+docs
+
+# I modelli da cui partono le pagine nuove: non sono pagine
+_template.it.html
+_template.en.html
