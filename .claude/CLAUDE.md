@@ -65,6 +65,7 @@ reasoning when it is not obvious.
 ├── stile/index.html               style guide, noindex, Italian only, not in the nav
 └── assets/
     ├── css/style.css              the entire stylesheet
+    ├── data/                      static files a tool fetches (nanoGPT's Shakespeare excerpt)
     └── js/
         ├── tema.js                light/dark theme; loaded first, before i18n.js
         ├── i18n.js                page language + JS strings; loaded before layout.js
@@ -369,6 +370,27 @@ Written down so future changes do not drift.
   and keeps its literal name in both languages. Saving the displayed name instead
   would give anyone who switches language a half-translated shopping list. The
   same applies to category keys (`carne`, not `Carne`).
+- **`nanogpt.js` keeps nanoGPT's names, in English, on purpose.** Sections 0–5
+  (model, hand-written backward pass, training, sampling) use Karpathy's exact
+  identifiers — `tok_emb`, `c_attn`, `att`, `get_lr`, `idx_cond` — because the
+  page exists to be read next to `model.py`. Do not translate them; the
+  interface code in section 6 follows the usual Italian naming. The same goes
+  for the page text: code names are never translated, in either tree.
+- **The nanoGPT listings are pinned to commit `3adf61e`.** They are verbatim
+  quotes, and `data-riga` on each line is that commit's real line number. Each
+  attention step names the lines it highlights in `data-righe`, in both pages:
+  if a listing is ever re-quoted from a newer commit, those attributes must
+  follow. Inside the `<pre>`, lines are joined with `</span⏎><span` — a
+  newline between two spans would be text, and render as an empty line.
+- **Code names inside uppercase labels need `.ident`.** `.lab__label`,
+  `.stat__key` and table headers are uppercased by CSS, which turns
+  `learning_rate` into `LEARNING_RATE` and `μ` into `M`. Put `.ident` on the
+  label if it is all code, or on a span inside it. In `nanogpt.js`, the
+  `tessera()` keys mark code with backticks for the same reason.
+- **nanoGPT's training fetches `/assets/data/shakespeare.txt`.** It is a static
+  file on the same origin, downloaded only when the visitor presses Train;
+  nothing the visitor types is sent anywhere, so the client-side promise on the
+  tools index still holds.
 
 ## Deployment
 

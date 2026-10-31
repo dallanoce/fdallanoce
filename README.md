@@ -33,6 +33,7 @@ known, and what `x-default` points at.
 ├── stile/                         style guide (noindex, Italian only, not in the nav)
 └── assets/                        shared by both trees, never duplicated
     ├── css/style.css              the entire stylesheet
+    ├── data/                      static files a tool fetches (nanoGPT's Shakespeare excerpt)
     └── js/
         ├── tema.js                light/dark theme, loaded first
         ├── i18n.js                page language and JS strings
