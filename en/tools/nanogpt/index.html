@@ -263,7 +263,7 @@
               </span>
               <span class="index__meta" id="forma-emb">(B, 8, 16)</span>
             </a>
-            <a class="index__row" href="#layernorm">
+            <a class="index__row" href="#diagram">
               <span class="index__main">
                 <span class="index__label">h[i] — Block × n_layer</span>
                 <span class="index__note">Two sub-blocks, each with its own LayerNorm and its own residual add.</span>
@@ -321,6 +321,67 @@
           number nanoGPT prints on startup subtracts wpe. With this rule
           shakespeare_char gives 10.65M and gpt2 123.65M, the same numbers as in
           the terminal.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- HOW TO READ THE DRAWINGS ---------- -->
+    <div class="block" id="drawings">
+      <h3 class="block__title">How to read the drawings</h3>
+      <p class="block__note">
+        From here on every step of the model is drawn the same way: the tensors
+        with their shape and, between one and the next, the operation that links
+        them with the code that runs it. The rulers under and beside each matrix
+        say how long each dimension is. Colour is the sign, green positive and
+        red negative, stronger the larger the number. In small matrices the
+        number is written in the cell; in large ones only the colour remains,
+        and the number shows up when you hover over it.
+      </p>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>Product: row times column</h4>
+          <p>The first factor bottom left, the second at the top. Row <i>i</i>
+            of the first and column <i>j</i> of the second meet in cell
+            (<i>i</i>, <i>j</i>) of the result, which is their dot product. The
+            inner dimension <i>k</i> is the same in both factors, and disappears.
+            Click a cell of the result.</p>
+          <div class="flow" id="leggenda-prodotto"></div>
+          <div class="readout" id="leggenda-lettura" aria-live="polite"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Shape: the same numbers, in another order</h4>
+          <p>transpose swaps rows and columns; cat, split and view glue, cut and
+            group. No number changes value: that is why these operations have a
+            dashed border.</p>
+          <div class="flow" id="leggenda-forma"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Heads and broadcasting</h4>
+          <p>A tensor with one more dimension is a deck of matrices: you see the
+            one in front, and clicking the card behind brings it forward. A vector
+            added to a matrix applies to each of its rows: the copies that
+            broadcasting adds are drawn faded.</p>
+          <div class="flow" id="leggenda-pila"></div>
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <div class="op op--prodotto"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">x @ W.T + b</code><span class="op__kind">product · rows × columns</span></span></div>
+          <p>Linear and @. Every number of the result depends on a whole row and a whole column.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--forma"><span class="op__glyph" aria-hidden="true">ᵀ</span><span class="op__body"><code class="op__code">k.transpose(-2, -1)</code><span class="op__kind">shape · no number changes</span></span></div>
+          <p>view, transpose, split, cat. Only the way the numbers are lined up changes.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--elemento"><span class="op__glyph" aria-hidden="true">+</span><span class="op__body"><code class="op__code">x + attn(x)</code><span class="op__kind">cell by cell</span></span></div>
+          <p>+, ×, gelu, masked_fill, dropout. Each cell on its own, without looking at its neighbours.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--riga"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax(att, dim=-1)</code><span class="op__kind">along one dimension</span></span></div>
+          <p>layer_norm, softmax, mean. Reads a whole dimension, usually a row, and transforms it together.</p>
         </div>
       </div>
     </div>
@@ -498,14 +559,16 @@
           <div class="chips" id="emb-pos" role="group" aria-label="Position"></div>
         </div>
         <div class="lab__body">
-          <div class="tensors" id="emb-tensori"></div>
+          <div class="flow" id="emb-tensori"></div>
           <div class="tensors" id="emb-zoom"></div>
         </div>
         <div class="lab__foot">
-          Above, the three whole matrices, colour only; below, the chosen position
+          At the top the two tables with the rows that are read lit: in wte those
+          of the prompt's characters, with the outline on the chosen position's;
+          in wpe the first T. Then the sum, and at the bottom the chosen position
           with its numbers. Each matrix's colour is scaled on its largest absolute
-          value: green positive, red negative. At step zero the numbers are small
-          (standard deviation 0.02): that is nanoGPT's initialisation, not a bug.
+          value. At step zero the numbers are small (standard deviation 0.02):
+          that is nanoGPT's initialisation, not a bug.
         </div>
       </div>
 
@@ -526,6 +589,8 @@
           <div class="formula">
             <span class="eq">one_hot(idx<sub>t</sub>) · <i>W</i><sub>te</sub> = <i>W</i><sub>te</sub>[ idx<sub>t</sub> ]</span>
           </div>
+          <div id="emb-onehot"></div>
+          <div class="readout" id="emb-onehot-lettura" aria-live="polite"></div>
         </div>
       </details>
     </div>
@@ -544,6 +609,140 @@
       from the earlier ones, and the MLP, where each position processes it on
       its own. Karpathy puts it this way: communication, then computation.
     </p>
+
+    <!-- ---------- BLOCK DIAGRAM ---------- -->
+    <div class="block" id="diagram">
+      <h3 class="block__title">The Block in one picture</h3>
+      <p class="block__note">
+        The green line is the residual stream: the tensor x, of shape
+        (B, T, C), flowing down through the Block. Two branches leave it, do
+        their computation and come back by adding themselves at the +. Under
+        each operation is the tensor it produces, computed on the prompt: the
+        shape reads from the proportions, one cell per number. Each operation
+        takes you to the part of the page that explains it, already on the
+        right step.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-schema">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-schema" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Block</p>
+          <div class="chips" id="schema-strato" role="group" aria-label="Block"></div>
+        </div>
+        <div class="lab__body">
+          <ol class="stream" id="schema-block">
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_in"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.attn(self.ln_1(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_1"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_1</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_1"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attention" data-passo="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_attn</code></span></a>
+                  <span class="stream__mini" data-tensore="qkv"></span>
+                  <span class="stream__shape">(B, T, 3C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attention" data-passo="1"><span class="op__glyph" aria-hidden="true">÷3</span><span class="op__body"><code class="op__code">.split()</code></span></a>
+                  <span class="stream__mini" data-tensore="split"></span>
+                  <span class="stream__shape">3 × (B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attention" data-passo="2"><span class="op__glyph" aria-hidden="true">⊞</span><span class="op__body"><code class="op__code">.view().transpose(1, 2)</code></span></a>
+                  <span class="stream__mini" data-tensore="teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attention" data-passo="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">q @ k.T</code></span></a>
+                  <span class="stream__mini" data-tensore="att_raw"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attention" data-passo="4"><span class="op__glyph" aria-hidden="true">×</span><span class="op__body"><code class="op__code">* 1/√hs</code></span></a>
+                  <span class="stream__mini" data-tensore="att_scala"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attention" data-passo="5"><span class="op__glyph" aria-hidden="true">−∞</span><span class="op__body"><code class="op__code">.masked_fill()</code></span></a>
+                  <span class="stream__mini" data-tensore="att_maschera"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--riga" href="#attention" data-passo="6"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax()</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attention" data-passo="7"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">attn_dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attention" data-passo="8"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">att @ v</code></span></a>
+                  <span class="stream__mini" data-tensore="y_teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attention" data-passo="9"><span class="op__glyph" aria-hidden="true">‖</span><span class="op__body"><code class="op__code">.transpose(1, 2).view()</code></span></a>
+                  <span class="stream__mini" data-tensore="y"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attention" data-passo="10"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="attn_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#attention" data-passo="10" aria-label="Attention residual add: step 10">+</a>x + attn(ln_1(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_mid"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.mlp(self.ln_2(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_2"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_2</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_2"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_fc</code></span></a>
+                  <span class="stream__mini" data-tensore="h_fc"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="2"><span class="op__glyph" aria-hidden="true">Φ</span><span class="op__body"><code class="op__code">gelu</code></span></a>
+                  <span class="stream__mini" data-tensore="h_gelu"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="4"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#mlp" data-mlp="4" aria-label="MLP residual add">+</a>x + mlp(ln_2(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_out"></span></li>
+          </ol>
+        </div>
+        <div class="lab__foot">
+          The thumbnails draw all T rows, one cell per number, each scaled on
+          its own largest value. Tensors with a dimension for the heads are
+          decks of nh cards. qkv is three times as wide as x, the MLP's hidden
+          layer four times: everything goes back to C before the add, because
+          only something of the same shape can be added to the residual stream.
+        </div>
+      </div>
+    </div>
 
     <!-- ---------- RESIDUAL ---------- -->
     <div class="block">
@@ -637,6 +836,7 @@
           <div class="chips" id="ln-pos" role="group" aria-label="Position"></div>
         </div>
         <div class="lab__body">
+          <div class="flow" id="ln-diagramma"></div>
           <div class="split">
             <div class="figure">
               <svg id="ln-grafico" viewBox="0 0 420 300" role="img" aria-labelledby="ln-grafico-titolo">
@@ -655,7 +855,10 @@
           The variance is the "population" one, divided by C and not by C − 1, as
           in <span class="mono">F.layer_norm</span>. ε is not decoration: when the
           incoming numbers are small, as at step zero, it weighs on the division
-          and the output comes out with variance visibly below 1.
+          and the output comes out with variance visibly below 1. In the drawing
+          μ and √(σ² + ε) are (T, 1) columns, weight and bias (C,) vectors: the
+          copies broadcasting adds to reach (T, C) are faded, and the outline
+          follows the chosen position.
         </div>
       </div>
     </div>
@@ -752,7 +955,9 @@
                   them into three slices of 16: q, k and v. It is an optimisation:
                   three separate matrices would give the same result with three
                   multiplications instead of one. The weight is stored as (3C, C),
-                  like every nn.Linear, and the transpose is in the formula.
+                  like every nn.Linear, and the transpose is in the formula. Click a
+                  cell of qkv to see which row of x and which column of the weights
+                  it comes from.
                 </p>
               </div>
               <div class="step" data-passo="2" data-righe="57-59">
@@ -764,8 +969,9 @@
                   of hs = 8, and each group becomes a head of its own. After the
                   transpose the head dimension sits next to the batch one, and from
                   here on each head works as if it were an independent attention,
-                  in parallel with the others. Below, the colour of the bands says
-                  which column goes to which head.
+                  in parallel with the others. Below, view cuts the columns into nh
+                  groups and transpose puts them one behind the other: click the card
+                  behind to bring the other head forward.
                 </p>
               </div>
               <div class="step" data-passo="3" data-righe="67">
@@ -775,7 +981,9 @@
                 <p>
                   Every query against every key: one T × T matrix per head. Row
                   <i>i</i> says how interested position <i>i</i> is in each position
-                  <i>j</i>. Click a cell to see its dot product written out in full.
+                  <i>j</i>. Below, first the product of all heads together, then one
+                  head up close: k transposed, and the row-by-column product. Click a
+                  cell to see its dot product written out in full.
                 </p>
               </div>
               <div class="step" data-passo="4" data-righe="67">
@@ -816,6 +1024,8 @@
                   out at exactly zero. At step zero the rows are nearly uniform — 1,
                   then ½ ½, then ⅓ ⅓ ⅓ — because queries and keys are still small
                   noise: a model that knows nothing listens to everyone equally.
+                  Below, the two halves of softmax: e to the power of each cell, then
+                  each row divided by its own sum.
                 </p>
               </div>
               <div class="step" data-passo="7" data-righe="70">
@@ -873,7 +1083,7 @@
             </div>
           </div>
 
-          <div class="tensors" id="attn-tensori"></div>
+          <div class="flow" id="attn-tensori"></div>
           <div class="readout" id="attn-dettaglio" aria-live="polite"></div>
         </div>
 
@@ -881,7 +1091,9 @@
           These are the tensors of one head of the chosen Block, for the prompt
           typed above (B = 1, T = 8). The rows and columns of att carry the
           character of their position: the row is who asks, the column who
-          answers. Lines 61 to 64 are the flash branch, which PyTorch 2 actually
+          answers. In the products the first factor sits bottom left and the
+          second at the top: the row of one and the column of the other meet in
+          the cell of the result. Lines 61 to 64 are the flash branch, which PyTorch 2 actually
           runs: see the panel below.
         </div>
       </div>
@@ -994,7 +1206,56 @@
           <p class="lab__label">Position</p>
           <div class="chips" id="mlp-pos" role="group" aria-label="Position"></div>
         </div>
+        <div class="lab__bar">
+          <p class="lab__label">Step</p>
+          <div class="chips" id="mlp-passi" role="group" aria-label="Step">
+            <button class="chip" type="button" data-passo="1" aria-pressed="true">1</button>
+            <button class="chip" type="button" data-passo="2" aria-pressed="false">2</button>
+            <button class="chip" type="button" data-passo="3" aria-pressed="false">3</button>
+            <button class="chip" type="button" data-passo="4" aria-pressed="false">4</button>
+          </div>
+        </div>
         <div class="lab__body">
+          <div id="mlp-passi-testo" aria-live="polite">
+            <div class="step" data-passo="1" data-righe="88">
+              <p class="lab__label">Step 1 of 4</p>
+              <h4 class="step__title">c_fc: from C to 4C</h4>
+              <p>
+                Each row goes from 16 to 64 numbers: 64 dot products with the
+                rows of c_fc.weight, plus the bias. Click a cell of the result: its
+                row becomes the chosen position, in the chart below too.
+              </p>
+            </div>
+            <div class="step" data-passo="2" data-righe="89">
+              <p class="lab__label">Step 2 of 4</p>
+              <h4 class="step__title">gelu: cell by cell</h4>
+              <p>
+                GELU bends each number on its own, x · Φ(x). No cell looks at the
+                others, neither those in the same row nor those of other
+                positions.
+              </p>
+            </div>
+            <div class="step" data-passo="3" data-righe="90">
+              <p class="lab__label">Step 3 of 4</p>
+              <h4 class="step__title">c_proj: from 4C to C</h4>
+              <p>
+                Back to C = 16: each output is a dot product of length 64. Like
+                attn.c_proj, it starts with standard deviation 0.02 / √(2 · n_layer),
+                because it writes onto the residual stream.
+              </p>
+            </div>
+            <div class="step" data-passo="4" data-righe="91">
+              <p class="lab__label">Step 4 of 4</p>
+              <h4 class="step__title">dropout, then the add</h4>
+              <p>
+                Dropout is off here. The result is added to the residual stream in
+                the second line of <span class="mono">Block.forward</span>, line
+                105: x = x + self.mlp(self.ln_2(x)).
+              </p>
+            </div>
+          </div>
+          <div class="flow" id="mlp-tensori"></div>
+          <div class="readout" id="mlp-dettaglio" aria-live="polite"></div>
           <div class="figure">
             <svg id="mlp-grafico" viewBox="0 0 640 220" role="img" aria-labelledby="mlp-grafico-titolo">
               <title id="mlp-grafico-titolo">The 64 hidden activations of one position, before and after GELU</title>
@@ -1012,7 +1273,9 @@
           The 64 hidden numbers of the chosen position. GELU lets the positive
           ones through almost untouched and squashes the negative ones towards
           zero, but not exactly to zero: a small dip below zero remains, and the
-          gradient never switches off completely.
+          gradient never switches off completely. The products with 64 rows or
+          columns are drawn with small cells and no labels: the chosen position
+          is the lit row.
         </div>
       </div>
 
@@ -1098,6 +1361,26 @@
 ><span class="listing__line" data-riga="168">        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)</span></code></pre>
       <p class="listing__source">model.py · L138–L168 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L138-L168">GitHub</a></p>
 
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-testa">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-testa" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Position</p>
+          <div class="chips" id="testa-pos" role="group" aria-label="Position"></div>
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="testa-tensori"></div>
+          <div class="readout" id="testa-dettaglio" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          The second factor is wte transposed: its 65 columns are the
+          characters' embeddings, the same ones read at the input. The lit cell
+          is the logit of the right character for the chosen position, or of the
+          model's favourite on the last one; click another column to compare it
+          with another character.
+        </div>
+      </div>
+
       <div class="callouts">
         <div class="callout callout--good">
           <h4>Almost a quarter fewer parameters</h4>
@@ -1136,7 +1419,7 @@
           <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-loss" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
         </div>
         <div class="lab__body">
-          <div class="tensors" id="loss-logits"></div>
+          <div class="flow" id="loss-logits"></div>
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -1160,7 +1443,10 @@
           has no character after it, so its target is −1: exactly the case
           <span class="mono">ignore_index=-1</span> exists for. Its row is the
           prediction of the next character, the one <span class="mono">generate()</span>
-          uses. In the matrix, the outline marks the logit of the right character.
+          uses. In the matrices the outline marks each row's right character.
+          The drawing does softmax and −log in two steps;
+          <span class="mono">F.cross_entropy</span> uses log_softmax in one go,
+          which is more stable, but the number is the same.
         </div>
       </div>
     </div>

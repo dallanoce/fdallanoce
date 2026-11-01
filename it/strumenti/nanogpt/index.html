@@ -265,7 +265,7 @@
               </span>
               <span class="index__meta" id="forma-emb">(B, 8, 16)</span>
             </a>
-            <a class="index__row" href="#layernorm">
+            <a class="index__row" href="#schema">
               <span class="index__main">
                 <span class="index__label">h[i] — Block × n_layer</span>
                 <span class="index__note">Due sotto-blocchi, ognuno con la sua LayerNorm e la sua somma residua.</span>
@@ -323,6 +323,67 @@
           numero che nanoGPT stampa all'avvio toglie wpe. Con questa regola
           shakespeare_char dà 10,65M e gpt2 123,65M, gli stessi numeri del
           terminale.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- COME SI LEGGONO I DISEGNI ---------- -->
+    <div class="block" id="disegni">
+      <h3 class="block__title">Come si leggono i disegni</h3>
+      <p class="block__note">
+        Da qui in avanti ogni passo del modello è disegnato allo stesso modo: i
+        tensori con la loro forma e, fra uno e l'altro, l'operazione che li lega
+        con il codice che la esegue. I righelli sotto e accanto a ogni matrice
+        dicono quanto è lunga ogni dimensione. Il colore è il segno, verde
+        positivo e rosso negativo, più intenso quanto più il numero è grande.
+        Nelle matrici piccole il numero è scritto nella cella; in quelle grandi
+        resta solo il colore, e il numero compare passandoci sopra.
+      </p>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>Prodotto: riga per colonna</h4>
+          <p>Il primo fattore in basso a sinistra, il secondo in alto. La riga
+            <i>i</i> del primo e la colonna <i>j</i> del secondo si incontrano
+            nella cella (<i>i</i>, <i>j</i>) del risultato, che è il loro prodotto
+            scalare. La dimensione interna <i>k</i> è la stessa nei due fattori, e
+            sparisce. Clicca una cella del risultato.</p>
+          <div class="flow" id="leggenda-prodotto"></div>
+          <div class="readout" id="leggenda-lettura" aria-live="polite"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Forma: gli stessi numeri, in un altro ordine</h4>
+          <p>transpose scambia righe e colonne; cat, split e view incollano,
+            tagliano e raggruppano. Nessun numero cambia valore: per questo il
+            bordo di queste operazioni è tratteggiato.</p>
+          <div class="flow" id="leggenda-forma"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Teste e broadcast</h4>
+          <p>Un tensore con una dimensione in più è un mazzo di matrici: si vede
+            quella davanti, e cliccando la carta dietro la si porta davanti. Un
+            vettore sommato a una matrice vale per ogni sua riga: le copie che il
+            broadcast aggiunge sono in trasparenza.</p>
+          <div class="flow" id="leggenda-pila"></div>
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <div class="op op--prodotto"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">x @ W.T + b</code><span class="op__kind">prodotto · righe × colonne</span></span></div>
+          <p>Linear e @. Ogni numero del risultato dipende da una riga intera e da una colonna intera.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--forma"><span class="op__glyph" aria-hidden="true">ᵀ</span><span class="op__body"><code class="op__code">k.transpose(-2, -1)</code><span class="op__kind">forma · nessun numero cambia</span></span></div>
+          <p>view, transpose, split, cat. Cambia solo il modo in cui i numeri sono messi in fila.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--elemento"><span class="op__glyph" aria-hidden="true">+</span><span class="op__body"><code class="op__code">x + attn(x)</code><span class="op__kind">cella per cella</span></span></div>
+          <p>+, ×, gelu, masked_fill, dropout. Ogni cella per conto suo, senza guardare le vicine.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--riga"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax(att, dim=-1)</code><span class="op__kind">lungo una dimensione</span></span></div>
+          <p>layer_norm, softmax, mean. Legge una dimensione intera, di solito una riga, e la trasforma insieme.</p>
         </div>
       </div>
     </div>
@@ -501,15 +562,16 @@
           <div class="chips" id="emb-pos" role="group" aria-label="Posizione"></div>
         </div>
         <div class="lab__body">
-          <div class="tensors" id="emb-tensori"></div>
+          <div class="flow" id="emb-tensori"></div>
           <div class="tensors" id="emb-zoom"></div>
         </div>
         <div class="lab__foot">
-          In alto le tre matrici intere, solo colore; sotto, la posizione scelta
-          con i suoi numeri. Il colore di ogni matrice è scalato sul suo valore
-          più grande in modulo: verde positivo, rosso negativo. Al passo zero i
-          numeri sono piccoli (deviazione 0,02): è l'inizializzazione di nanoGPT,
-          non un errore.
+          In alto le due tabelle con accese le righe lette: in wte quelle dei
+          caratteri del prompt, con il filo su quella della posizione scelta; in
+          wpe le prime T. Poi la somma, e in fondo la posizione scelta con i suoi
+          numeri. Il colore di ogni matrice è scalato sul suo valore più grande
+          in modulo. Al passo zero i numeri sono piccoli (deviazione 0,02): è
+          l'inizializzazione di nanoGPT, non un errore.
         </div>
       </div>
 
@@ -530,6 +592,8 @@
           <div class="formula">
             <span class="eq">one_hot(idx<sub>t</sub>) · <i>W</i><sub>te</sub> = <i>W</i><sub>te</sub>[ idx<sub>t</sub> ]</span>
           </div>
+          <div id="emb-onehot"></div>
+          <div class="readout" id="emb-onehot-lettura" aria-live="polite"></div>
         </div>
       </details>
     </div>
@@ -548,6 +612,139 @@
       informazione dalle precedenti, e l'MLP, dove ogni posizione la elabora
       per conto suo. Karpathy lo riassume così: prima comunicare, poi calcolare.
     </p>
+
+    <!-- ---------- SCHEMA DEL BLOCK ---------- -->
+    <div class="block" id="schema">
+      <h3 class="block__title">Il Block in una figura</h3>
+      <p class="block__note">
+        La linea verde è il flusso residuo: il tensore x, di forma (B, T, C),
+        che scende attraverso il Block. Due rami se ne staccano, fanno il loro
+        calcolo e ci tornano sommandosi nel +. Sotto ogni operazione c'è il
+        tensore che produce, calcolato sul prompt: la forma si legge dalle
+        proporzioni, una cella per numero. Ogni operazione porta al punto della
+        pagina che la spiega, già sul passo giusto.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-schema">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-schema" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Block</p>
+          <div class="chips" id="schema-strato" role="group" aria-label="Block"></div>
+        </div>
+        <div class="lab__body">
+          <ol class="stream" id="schema-block">
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_in"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.attn(self.ln_1(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_1"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_1</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_1"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_attn</code></span></a>
+                  <span class="stream__mini" data-tensore="qkv"></span>
+                  <span class="stream__shape">(B, T, 3C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="1"><span class="op__glyph" aria-hidden="true">÷3</span><span class="op__body"><code class="op__code">.split()</code></span></a>
+                  <span class="stream__mini" data-tensore="split"></span>
+                  <span class="stream__shape">3 × (B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="2"><span class="op__glyph" aria-hidden="true">⊞</span><span class="op__body"><code class="op__code">.view().transpose(1, 2)</code></span></a>
+                  <span class="stream__mini" data-tensore="teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">q @ k.T</code></span></a>
+                  <span class="stream__mini" data-tensore="att_raw"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="4"><span class="op__glyph" aria-hidden="true">×</span><span class="op__body"><code class="op__code">* 1/√hs</code></span></a>
+                  <span class="stream__mini" data-tensore="att_scala"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="5"><span class="op__glyph" aria-hidden="true">−∞</span><span class="op__body"><code class="op__code">.masked_fill()</code></span></a>
+                  <span class="stream__mini" data-tensore="att_maschera"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--riga" href="#attenzione" data-passo="6"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax()</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="7"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">attn_dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="8"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">att @ v</code></span></a>
+                  <span class="stream__mini" data-tensore="y_teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="9"><span class="op__glyph" aria-hidden="true">‖</span><span class="op__body"><code class="op__code">.transpose(1, 2).view()</code></span></a>
+                  <span class="stream__mini" data-tensore="y"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="10"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="attn_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#attenzione" data-passo="10" aria-label="Somma residua dell'attenzione: passo 10">+</a>x + attn(ln_1(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_mid"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.mlp(self.ln_2(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_2"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_2</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_2"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_fc</code></span></a>
+                  <span class="stream__mini" data-tensore="h_fc"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="2"><span class="op__glyph" aria-hidden="true">Φ</span><span class="op__body"><code class="op__code">gelu</code></span></a>
+                  <span class="stream__mini" data-tensore="h_gelu"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="4"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#mlp" data-mlp="4" aria-label="Somma residua dell'MLP">+</a>x + mlp(ln_2(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_out"></span></li>
+          </ol>
+        </div>
+        <div class="lab__foot">
+          Le miniature disegnano tutte le T righe, una cella per numero, ognuna
+          scalata sul suo valore più grande. I tensori con una dimensione per le
+          teste sono mazzi di nh carte. qkv è largo tre volte x, lo strato
+          nascosto dell'MLP quattro: il resto torna a C prima della somma,
+          perché sul flusso residuo si somma solo qualcosa della stessa forma.
+        </div>
+      </div>
+    </div>
 
     <!-- ---------- RESIDUO ---------- -->
     <div class="block">
@@ -641,6 +838,7 @@
           <div class="chips" id="ln-pos" role="group" aria-label="Posizione"></div>
         </div>
         <div class="lab__body">
+          <div class="flow" id="ln-diagramma"></div>
           <div class="split">
             <div class="figure">
               <svg id="ln-grafico" viewBox="0 0 420 300" role="img" aria-labelledby="ln-grafico-titolo">
@@ -660,6 +858,9 @@
           come in <span class="mono">F.layer_norm</span>. ε non è decorativo:
           quando i numeri in ingresso sono piccoli, come al passo zero, pesa
           sulla divisione e l'uscita esce con varianza visibilmente sotto 1.
+          Nel disegno μ e √(σ² + ε) sono colonne (T, 1), weight e bias vettori
+          (C,): le copie che il broadcast aggiunge per arrivare a (T, C) sono in
+          trasparenza, e il filo segue la posizione scelta.
         </div>
       </div>
     </div>
@@ -756,7 +957,8 @@
                   tre fette da 16: q, k e v. È un'ottimizzazione: tre matrici separate
                   darebbero lo stesso risultato con tre moltiplicazioni invece di una.
                   Il peso è salvato (3C, C), come ogni nn.Linear, e la trasposta sta
-                  nella formula.
+                  nella formula. Clicca una cella di qkv per vedere da quale riga di x
+                  e da quale colonna dei pesi viene.
                 </p>
               </div>
               <div class="step" data-passo="2" data-righe="57-59">
@@ -768,8 +970,9 @@
                   gruppi di hs = 8, e ogni gruppo diventa una testa a sé. Dopo la
                   transpose la dimensione delle teste sta accanto a quella del batch,
                   e da qui in poi ogni testa lavora come se fosse un'attenzione
-                  indipendente, in parallelo alle altre. Sotto, i colori delle
-                  fasce dicono quale colonna va a quale testa.
+                  indipendente, in parallelo alle altre. Sotto, view taglia le
+                  colonne in nh gruppi e transpose li mette uno dietro l'altro: clicca
+                  la carta dietro per portare davanti l'altra testa.
                 </p>
               </div>
               <div class="step" data-passo="3" data-righe="67">
@@ -779,8 +982,10 @@
                 <p>
                   Ogni domanda contro ogni chiave: una matrice T × T per testa. La
                   riga <i>i</i> dice quanto la posizione <i>i</i> è interessata a
-                  ciascuna posizione <i>j</i>. Clicca una cella per vedere il suo
-                  prodotto scalare scritto per intero.
+                  ciascuna posizione <i>j</i>. Sotto, prima il prodotto di tutte le
+                  teste insieme, poi una testa da vicino: k trasposta, e il prodotto
+                  riga per colonna. Clicca una cella per vedere il suo prodotto
+                  scalare scritto per intero.
                 </p>
               </div>
               <div class="step" data-passo="4" data-righe="67">
@@ -821,7 +1026,8 @@
                   escono esattamente a zero. Al passo zero le righe sono quasi
                   uniformi — 1, poi ½ ½, poi ⅓ ⅓ ⅓ — perché domande e chiavi sono
                   ancora rumore piccolo: un modello che non sa niente ascolta tutti
-                  allo stesso modo.
+                  allo stesso modo. Sotto, i due tempi della softmax: e elevato a ogni
+                  cella, poi ogni riga divisa per la sua somma.
                 </p>
               </div>
               <div class="step" data-passo="7" data-righe="70">
@@ -880,14 +1086,17 @@
             </div>
           </div>
 
-          <div class="tensors" id="attn-tensori"></div>
+          <div class="flow" id="attn-tensori"></div>
           <div class="readout" id="attn-dettaglio" aria-live="polite"></div>
         </div>
 
         <div class="lab__foot">
           Sono i tensori di una testa del Block scelto, per il prompt scritto qui
           sopra (B = 1, T = 8). Righe e colonne di att portano il carattere della
-          loro posizione: la riga è chi chiede, la colonna chi risponde. Le righe
+          loro posizione: la riga è chi chiede, la colonna chi risponde. Nei
+          prodotti il primo fattore sta in basso a sinistra e il secondo in alto:
+          la riga dell'uno e la colonna dell'altro si incontrano nella cella del
+          risultato. Le righe
           da 61 a 64 sono il ramo flash, che PyTorch 2 usa davvero: vedi il
           riquadro qui sotto.
         </div>
@@ -1002,7 +1211,57 @@
           <p class="lab__label">Posizione</p>
           <div class="chips" id="mlp-pos" role="group" aria-label="Posizione"></div>
         </div>
+        <div class="lab__bar">
+          <p class="lab__label">Passo</p>
+          <div class="chips" id="mlp-passi" role="group" aria-label="Passo">
+            <button class="chip" type="button" data-passo="1" aria-pressed="true">1</button>
+            <button class="chip" type="button" data-passo="2" aria-pressed="false">2</button>
+            <button class="chip" type="button" data-passo="3" aria-pressed="false">3</button>
+            <button class="chip" type="button" data-passo="4" aria-pressed="false">4</button>
+          </div>
+        </div>
         <div class="lab__body">
+          <div id="mlp-passi-testo" aria-live="polite">
+            <div class="step" data-passo="1" data-righe="88">
+              <p class="lab__label">Passo 1 di 4</p>
+              <h4 class="step__title">c_fc: da C a 4C</h4>
+              <p>
+                Ogni riga passa da 16 a 64 numeri: 64 prodotti scalari con le
+                righe di c_fc.weight, più il bias. Clicca una cella del risultato:
+                la sua riga diventa la posizione scelta, anche nel grafico qui
+                sotto.
+              </p>
+            </div>
+            <div class="step" data-passo="2" data-righe="89">
+              <p class="lab__label">Passo 2 di 4</p>
+              <h4 class="step__title">gelu: cella per cella</h4>
+              <p>
+                La GELU piega ogni numero da solo, x · Φ(x). Nessuna cella guarda
+                le altre, né quelle della stessa riga né quelle delle altre
+                posizioni.
+              </p>
+            </div>
+            <div class="step" data-passo="3" data-righe="90">
+              <p class="lab__label">Passo 3 di 4</p>
+              <h4 class="step__title">c_proj: da 4C a C</h4>
+              <p>
+                Il ritorno a C = 16: ogni uscita è un prodotto scalare lungo 64.
+                Come attn.c_proj, nasce con deviazione 0,02 / √(2 · n_layer),
+                perché scrive sul flusso residuo.
+              </p>
+            </div>
+            <div class="step" data-passo="4" data-righe="91">
+              <p class="lab__label">Passo 4 di 4</p>
+              <h4 class="step__title">dropout, poi la somma</h4>
+              <p>
+                Il dropout qui è spento. Il risultato si somma al flusso residuo
+                nella seconda riga di <span class="mono">Block.forward</span>, la
+                105: x = x + self.mlp(self.ln_2(x)).
+              </p>
+            </div>
+          </div>
+          <div class="flow" id="mlp-tensori"></div>
+          <div class="readout" id="mlp-dettaglio" aria-live="polite"></div>
           <div class="figure">
             <svg id="mlp-grafico" viewBox="0 0 640 220" role="img" aria-labelledby="mlp-grafico-titolo">
               <title id="mlp-grafico-titolo">Le 64 attivazioni nascoste di una posizione, prima e dopo la GELU</title>
@@ -1020,7 +1279,9 @@
           I 64 numeri nascosti della posizione scelta. La GELU lascia passare
           quasi intatti i positivi e schiaccia i negativi verso zero, ma non
           esattamente a zero: un piccolo avvallamento sotto lo zero resta, e il
-          gradiente non si spegne mai del tutto.
+          gradiente non si spegne mai del tutto. I prodotti da 64 righe o colonne
+          sono disegnati a celle piccole, senza etichette: la posizione scelta è
+          la riga accesa.
         </div>
       </div>
 
@@ -1107,6 +1368,26 @@
 ><span class="listing__line" data-riga="168">        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)</span></code></pre>
       <p class="listing__source">model.py · L138–L168 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L138-L168">GitHub</a></p>
 
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-testa">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-testa" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Posizione</p>
+          <div class="chips" id="testa-pos" role="group" aria-label="Posizione"></div>
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="testa-tensori"></div>
+          <div class="readout" id="testa-dettaglio" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          Il secondo fattore è wte trasposta: le sue 65 colonne sono gli
+          embedding dei caratteri, gli stessi letti all'ingresso. La cella
+          accesa è il logit del carattere giusto per la posizione scelta, o del
+          preferito del modello sull'ultima; clicca un'altra colonna per
+          confrontarla con un altro carattere.
+        </div>
+      </div>
+
       <div class="callouts">
         <div class="callout callout--good">
           <h4>Quasi un quarto dei parametri in meno</h4>
@@ -1145,7 +1426,7 @@
           <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-loss" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
         </div>
         <div class="lab__body">
-          <div class="tensors" id="loss-logits"></div>
+          <div class="flow" id="loss-logits"></div>
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -1169,8 +1450,10 @@
           non ha un carattere dopo, quindi il suo target è −1: è esattamente il
           caso per cui esiste <span class="mono">ignore_index=-1</span>. La sua
           riga è la previsione del prossimo carattere, quella che usa
-          <span class="mono">generate()</span>. Nella matrice, il riquadro marca
-          il logit del carattere giusto.
+          <span class="mono">generate()</span>. Nelle matrici il filo marca il
+          carattere giusto di ogni riga. Il disegno fa la softmax e il −log in
+          due tempi; <span class="mono">F.cross_entropy</span> usa log_softmax in
+          un colpo solo, più stabile, ma il numero è lo stesso.
         </div>
       </div>
     </div>

@@ -930,13 +930,16 @@ function esc(s) {
 }
 
 /* Come in correlazione.js: decimali secondo la lingua della pagina e il
-   meno tipografico U+2212 al posto del trattino. */
+   meno tipografico U+2212 al posto del trattino. Un formattatore per ogni
+   numero di decimali, creato una volta sola: crearne uno nuovo a ogni
+   numero costa quanto disegnare la cella, e le celle sono migliaia. */
+const FORMATTATORI = {};
 function fmtNum(valore, decimali = 2) {
   if (!isFinite(valore)) return valore < 0 ? "−∞" : "—";
-  const f = new Intl.NumberFormat(I18N.locale, {
+  const f = FORMATTATORI[decimali] || (FORMATTATORI[decimali] = new Intl.NumberFormat(I18N.locale, {
     minimumFractionDigits: decimali,
     maximumFractionDigits: decimali,
-  });
+  }));
   const s = f.format(Math.abs(valore));
   return (valore < 0 && parseFloat(s.replace(",", ".")) !== 0 ? "−" : "") + s;
 }
@@ -1040,21 +1043,41 @@ function segnaChip(contenitore, attributo, attiva) {
    matrice(t, o) disegna un tensore { shape, data } come una .heat dentro
    una .tensor, con nome e forma sopra. Le opzioni:
 
-     nome, forma       le due etichette sopra la matrice
-     compatta          celle piccole solo colore (.heat--compact)
+     nome, forma       le due etichette sopra la matrice; testa: false le toglie
+     dimensione        "compatta", "fine", "mini": celle piccole solo colore;
+                       "larga": con il numero, per quattro decimali;
+                       niente: con il numero. compatta: true vale "compatta"
      righe, colonne    etichette di riga e di colonna, o niente
      bande             per ogni colonna 1, 2 o 3: la fascia colorata sopra
+     dims              i righelli: [righe, colonne], per esempio
+                       ["T = 8", "C = 16"]; colonne può essere una lista,
+                       un'etichetta per ogni gruppo fra due fessure
+     fessure           le colonne prima delle quali la matrice si apre:
+                       split, view e le teste affiancate
      valore(i, j)      chi legge il numero, se non è t.data[i·colonne + j]
      maschera(i, j)    vero per le celle a −∞; testoMaschera le scrive
-     scelta {i, j}     la cella evidenziata;  rigaScelta, colonnaScelta
+     scelta {i, j}     la cella evidenziata; rigaScelta, colonnaScelta
+                       mettono in grassetto le etichette
+     evidenzia(i, j)   le celle con il filo sottile: una riga da seguire
      attenua(i, j)     vero per le celle che non c'entrano
+     fantasma(i, j)    le copie aggiunte da un broadcast
      clic(i, j)        se c'è, le celle sono bottoni
      note              un testo per riga, in una colonna fuori matrice
      decimali, scala   scala è il valore che dà il colore pieno
+     neutra            nessun colore: per gli indici, che non sono misure
+     scorri            false: senza la .heat-scroll, quando la matrice sta
+                       dentro un prodotto o un mazzo che scorre per conto suo
+
+   Ogni elemento è messo nella griglia con riga e colonna esplicite: le
+   righe delle celle sono alte quanto una cella, così in un prodotto la
+   matrice di sinistra e il risultato restano allineati anche se solo una
+   delle due ha le etichette.
 
    Il colore è una mescolanza fra --heat-mid e il token del segno, in una
    quantità proporzionale a |valore| / scala: tutto passa da proprietà
    personalizzate, nessun colore scritto qui. */
+
+const CLASSE_DIMENSIONE = { compatta: " heat--compact", fine: " heat--fine", mini: " heat--mini", larga: " heat--wide" };
 
 function matrice(t, o = {}) {
   const R = t.shape.length === 2 ? t.shape[0] : 1;
@@ -1062,6 +1085,9 @@ function matrice(t, o = {}) {
   const valore = o.valore || ((i, j) => t.data[i * K + j]);
   const maschera = o.maschera || (() => false);
   const decimali = o.decimali === undefined ? 2 : o.decimali;
+  const dimensione = o.dimensione || (o.compatta ? "compatta" : "");
+  const muta = dimensione === "compatta" || dimensione === "fine" || dimensione === "mini";
+  const dims = o.dims || [];
 
   let scala = o.scala;
   if (!scala) {
@@ -1076,33 +1102,63 @@ function matrice(t, o = {}) {
 
   const box = document.createElement("div");
   box.className = "tensor";
+  if (o.chiave) box.dataset.diagramma = o.chiave;
 
-  const testa = document.createElement("div");
-  testa.className = "tensor__head";
-  const n = document.createElement("span");
-  n.className = "tensor__name";
-  n.textContent = o.nome || "";
-  testa.appendChild(n);
-  if (o.forma) {
-    const f = document.createElement("span");
-    f.className = "tensor__shape";
-    f.textContent = o.forma;
-    testa.appendChild(f);
+  if (o.testa !== false) {
+    const testa = document.createElement("div");
+    testa.className = "tensor__head";
+    const n = document.createElement("span");
+    n.className = "tensor__name";
+    n.textContent = o.nome || "";
+    testa.appendChild(n);
+    if (o.forma) {
+      const f = document.createElement("span");
+      f.className = "tensor__shape";
+      f.textContent = o.forma;
+      testa.appendChild(f);
+    }
+    box.appendChild(testa);
   }
-  box.appendChild(testa);
 
-  const scorri = document.createElement("div");
-  scorri.className = "heat-scroll";
   const griglia = document.createElement("div");
-  griglia.className = "heat" + (o.compatta ? " heat--compact" : "");
-  const lato = o.compatta ? "11px" : "38px";
-  griglia.style.gridTemplateColumns =
-    (o.righe ? "auto " : "") + "repeat(" + K + ", " + lato + ")" + (o.note ? " auto" : "");
+  griglia.className = "heat" + (CLASSE_DIMENSIONE[dimensione] || "");
 
-  /* Una matrice compatta è un'immagine per chi usa uno screen reader: 128
+  /* Le tracce della griglia. Colonne: etichette di riga, le celle con le
+     fessure in mezzo, il righello delle righe, le note. Righe: etichette
+     di colonna, bande, le celle, il righello delle colonne. */
+  const fessure = new Set(o.fessure || []);
+  const colonneG = [];
+  const aggiungiColonna = misura => { colonneG.push(misura); return colonneG.length; };
+  const colRighe = o.righe ? aggiungiColonna("auto") : 0;
+  const colCella = [];
+  for (let j = 0; j < K; j++) {
+    if (j > 0 && fessure.has(j)) aggiungiColonna("var(--s-3)");
+    colCella.push(aggiungiColonna("var(--cella-l, 38px)"));
+  }
+  const colRighello = dims[0] ? aggiungiColonna("auto") : 0;
+  const colNote = o.note ? aggiungiColonna("auto") : 0;
+
+  const righeG = [];
+  const aggiungiRiga = misura => { righeG.push(misura); return righeG.length; };
+  const rigaColonne = o.colonne ? aggiungiRiga("auto") : 0;
+  const rigaBande = o.bande ? aggiungiRiga("auto") : 0;
+  const rigaCella = [];
+  for (let i = 0; i < R; i++) rigaCella.push(aggiungiRiga("var(--cella-a, 28px)"));
+  const rigaRighello = dims[1] ? aggiungiRiga("auto") : 0;
+
+  griglia.style.gridTemplateColumns = colonneG.join(" ");
+  griglia.style.gridTemplateRows = righeG.join(" ");
+
+  const metti = (el, riga, colonna) => {
+    el.style.gridRow = String(riga);
+    el.style.gridColumn = String(colonna);
+    return el;
+  };
+
+  /* Una matrice muta è un'immagine per chi usa uno screen reader: 128
      celle senza numero lette una per una non aiutano nessuno. Una matrice
      con i numeri è una tabella, con righe vere. */
-  if (o.compatta) {
+  if (muta) {
     griglia.setAttribute("role", "img");
     griglia.setAttribute("aria-label", (o.nome || "") + " " + (o.forma || ""));
   } else {
@@ -1110,93 +1166,122 @@ function matrice(t, o = {}) {
     griglia.setAttribute("aria-label", o.nome || "");
   }
 
-  const vuota = () => {
-    const d = document.createElement("div");
-    if (!o.compatta) d.setAttribute("role", "presentation");
-    return d;
-  };
-
   if (o.colonne) {
     const riga = document.createElement("div");
     riga.style.display = "contents";
-    if (!o.compatta) riga.setAttribute("role", "row");
-    if (o.righe) riga.appendChild(vuota());
+    if (!muta) riga.setAttribute("role", "row");
     o.colonne.forEach((c, j) => {
-      const d = document.createElement("div");
+      const d = metti(document.createElement("div"), rigaColonne, colCella[j]);
       d.className = "heat__colhead" + (o.colonnaScelta === j ? " is-focus" : "");
-      if (!o.compatta) d.setAttribute("role", "columnheader");
+      if (!muta) d.setAttribute("role", "columnheader");
       d.textContent = c;
       riga.appendChild(d);
     });
-    if (o.note) riga.appendChild(vuota());
     griglia.appendChild(riga);
   }
 
   if (o.bande) {
-    if (o.righe) griglia.appendChild(vuota());
-    o.bande.forEach(b => {
-      const d = document.createElement("div");
+    o.bande.forEach((b, j) => {
+      const d = metti(document.createElement("div"), rigaBande, colCella[j]);
       d.className = "heat__band heat__band--" + b;
       d.setAttribute("aria-hidden", "true");
       griglia.appendChild(d);
     });
-    if (o.note) griglia.appendChild(vuota());
   }
 
   for (let i = 0; i < R; i++) {
     const riga = document.createElement("div");
     riga.style.display = "contents";
-    if (!o.compatta) riga.setAttribute("role", "row");
+    if (!muta) riga.setAttribute("role", "row");
 
     if (o.righe) {
-      const h = document.createElement("div");
+      const h = metti(document.createElement("div"), rigaCella[i], colRighe);
       h.className = "heat__rowhead" + (o.rigaScelta === i ? " is-focus" : "");
-      if (!o.compatta) h.setAttribute("role", "rowheader");
+      if (!muta) h.setAttribute("role", "rowheader");
       h.textContent = o.righe[i];
       riga.appendChild(h);
     }
 
     for (let j = 0; j < K; j++) {
       const v = valore(i, j);
-      const cella = document.createElement(o.clic ? "button" : "div");
+      const cella = metti(document.createElement(o.clic ? "button" : "div"), rigaCella[i], colCella[j]);
       cella.className = "heat__cell";
       if (o.clic) {
         cella.type = "button";
+        cella.dataset.i = String(i);
+        cella.dataset.j = String(j);
         cella.addEventListener("click", () => o.clic(i, j));
-      } else if (!o.compatta) {
+      } else if (!muta) {
         cella.setAttribute("role", "cell");
       }
 
       const nomeCella = (o.nome || "") + "[" + i + ", " + j + "]";
       if (maschera(i, j)) {
+        const testo = o.testoMaschera === undefined ? "−∞" : o.testoMaschera;
         cella.classList.add("is-masked");
-        if (!o.compatta) cella.textContent = o.testoMaschera === undefined ? "−∞" : o.testoMaschera;
-        cella.title = nomeCella + " = " + (o.testoMaschera === undefined ? "−∞" : o.testoMaschera);
+        if (!muta) cella.textContent = testo;
+        cella.title = nomeCella + " = " + testo;
       } else {
-        const q = Math.min(1, Math.abs(v) / scala);
-        cella.style.setProperty("--tinta", v >= 0 ? "var(--heat-pos)" : "var(--heat-neg)");
-        cella.style.setProperty("--mescola", (q * (o.compatta ? 85 : 55)).toFixed(1) + "%");
-        if (!o.compatta) cella.textContent = fmtNum(v, decimali);
-        cella.title = nomeCella + " = " + fmtNum(v, 4);
+        if (!o.neutra) {
+          const q = Math.min(1, Math.abs(v) / scala);
+          cella.style.setProperty("--tinta", v >= 0 ? "var(--heat-pos)" : "var(--heat-neg)");
+          cella.style.setProperty("--mescola", (q * (muta ? 85 : 55)).toFixed(1) + "%");
+        }
+        if (!muta) cella.textContent = fmtNum(v, decimali);
+        if (dimensione !== "mini") cella.title = nomeCella + " = " + fmtNum(v, Math.max(decimali, 4));
       }
       if (o.clic) cella.setAttribute("aria-label", cella.title);
       if (o.scelta && o.scelta.i === i && o.scelta.j === j) cella.classList.add("is-focus");
+      if (o.evidenzia && o.evidenzia(i, j)) cella.classList.add("is-pick");
       if (o.attenua && o.attenua(i, j)) cella.classList.add("is-dim");
+      if (o.fantasma && o.fantasma(i, j)) cella.classList.add("is-ghost");
       riga.appendChild(cella);
     }
 
     if (o.note) {
-      const d = document.createElement("div");
+      const d = metti(document.createElement("div"), rigaCella[i], colNote);
       d.className = "heat__note";
-      if (!o.compatta) d.setAttribute("role", "cell");
+      if (!muta) d.setAttribute("role", "cell");
       d.textContent = o.note[i];
       riga.appendChild(d);
     }
     griglia.appendChild(riga);
   }
 
-  scorri.appendChild(griglia);
-  box.appendChild(scorri);
+  /* I righelli: uno accanto a tutte le righe, uno sotto le colonne o sotto
+     ogni gruppo di colonne fra due fessure. */
+  if (dims[0]) {
+    const d = document.createElement("div");
+    d.className = "heat__ruler heat__ruler--y";
+    d.setAttribute("aria-hidden", "true");
+    d.style.gridRow = rigaCella[0] + " / " + (rigaCella[R - 1] + 1);
+    d.style.gridColumn = String(colRighello);
+    d.textContent = dims[0];
+    griglia.appendChild(d);
+  }
+  if (dims[1]) {
+    const tagli = [0, ...[...fessure].filter(j => j > 0 && j < K).sort((a, b) => a - b), K];
+    const gruppi = Array.isArray(dims[1]) ? dims[1] : [dims[1]];
+    const tratti = Array.isArray(dims[1]) ? tagli.slice(0, -1).map((da, g) => [da, tagli[g + 1]]) : [[0, K]];
+    tratti.forEach(([da, a], g) => {
+      const d = document.createElement("div");
+      d.className = "heat__ruler heat__ruler--x";
+      d.setAttribute("aria-hidden", "true");
+      d.style.gridRow = String(rigaRighello);
+      d.style.gridColumn = colCella[da] + " / " + (colCella[a - 1] + 1);
+      d.textContent = gruppi[g] || "";
+      griglia.appendChild(d);
+    });
+  }
+
+  if (o.scorri === false) {
+    box.appendChild(griglia);
+  } else {
+    const scorri = document.createElement("div");
+    scorri.className = "heat-scroll";
+    scorri.appendChild(griglia);
+    box.appendChild(scorri);
+  }
   return box;
 }
 
@@ -1230,6 +1315,240 @@ function trasposta(t) {
 /* Un parametro 1D (un bias) come matrice di una riga. */
 const comeRiga = p => ({ shape: [1, p.shape[0]], data: p.data });
 
+/* Una matrice (R, K) fatta ripetendo un vettore: per riga (un bias, che
+   vale per ogni posizione) o per colonna (una media, che vale per ogni
+   canale). È quello che fa il broadcast, senza scriverlo in memoria. */
+function ripetiRiga(vettore, R) {
+  const K = vettore.length;
+  const out = tensor([R, K]);
+  for (let i = 0; i < R; i++) out.data.set(vettore, i * K);
+  return out;
+}
+function ripetiColonna(vettore, K) {
+  const R = vettore.length;
+  const out = tensor([R, K]);
+  for (let i = 0; i < R; i++) out.data.fill(vettore[i], i * K, (i + 1) * K);
+  return out;
+}
+
+
+/* --- Disegni di operazioni -------------------------------------------------
+   Le funzioni qui sotto mettono insieme le matrici nei quattro modi che
+   servono a disegnare un modello: il prodotto riga per colonna, il mazzo
+   delle teste, l'operazione con il suo codice, il flusso dall'alto in
+   basso. Le classi sono nella sezione 12 di style.css. */
+
+/* I quattro tipi di operazione, come li scrive la pagina. */
+const TIPI_OP = {
+  prodotto: { it: "prodotto · righe × colonne", en: "product · rows × columns" },
+  forma: { it: "forma · nessun numero cambia", en: "shape · no number changes" },
+  elemento: { it: "cella per cella", en: "cell by cell" },
+  riga: { it: "lungo una dimensione", en: "along one dimension" },
+};
+
+/* L'operazione fra due tensori: il glifo, il codice che la esegue, il
+   tipo, e se serve una nota. */
+function op(tipo, glifo, codice, nota) {
+  const d = document.createElement("div");
+  d.className = "op op--" + tipo;
+  const g = document.createElement("span");
+  g.className = "op__glyph";
+  g.setAttribute("aria-hidden", "true");
+  g.textContent = glifo;
+  const corpo = document.createElement("span");
+  corpo.className = "op__body";
+  const c = document.createElement("code");
+  c.className = "op__code";
+  c.textContent = codice;
+  const k = document.createElement("span");
+  k.className = "op__kind";
+  k.textContent = I18N.t(TIPI_OP[tipo]);
+  corpo.append(c, k);
+  if (nota) {
+    const n = document.createElement("span");
+    n.className = "op__note";
+    n.textContent = nota;
+    corpo.appendChild(n);
+  }
+  d.append(g, corpo);
+  return d;
+}
+
+/* Una tappa del flusso: una fila di tensori. E un passaggio: la freccia
+   verso il basso con le operazioni che portano alla tappa dopo. */
+function tappa(...figli) {
+  const d = document.createElement("div");
+  d.className = "flow__stage";
+  figli.filter(Boolean).forEach(f => d.appendChild(f));
+  return d;
+}
+function passaggio(...figli) {
+  const d = document.createElement("div");
+  d.className = "flow__op";
+  figli.filter(Boolean).forEach(f => d.appendChild(f));
+  return d;
+}
+
+/* Un'etichetta dentro un flusso, per dire "da qui in poi, una testa". */
+function didascalia(testo) {
+  const p = document.createElement("p");
+  p.className = "lab__label";
+  p.textContent = testo;
+  return p;
+}
+
+/* Il prodotto riga per colonna: a @ b (+ bias) = out.
+     a, b, out      tensori { shape, data }; bias un parametro 1D, o niente
+     oa, ob, obias, oout   le opzioni di matrice() per ciascuno
+     dimensione     una sola per tutte e quattro: le celle devono combaciare
+     op             l'operazione, nell'angolo in alto a sinistra
+     sel {i, j}     la cella scelta del risultato: accende la riga i di a,
+                    la colonna j di b e del bias, e attenua il resto
+     clic(i, j)     le celle del risultato sono bottoni
+     chiave         il nome del disegno, per ritrovare il focus */
+function prodotto(o) {
+  const dimensione = o.dimensione || "";
+  const sel = o.sel;
+  const oppure = (f, g) => (i, j) => Boolean((f && f(i, j)) || (g && g(i, j)));
+  const fuoriRiga = sel ? i => i !== sel.i : null;
+  const fuoriColonna = sel ? (i, j) => j !== sel.j : null;
+  /* La riga e la colonna che si moltiplicano hanno il filo: attenuare il
+     resto non basta, quando i pesi sono quasi tutti vicini a zero e il loro
+     colore è già quello dello sfondo. */
+  const laRiga = sel ? i => i === sel.i : null;
+  const laColonna = sel ? (i, j) => j === sel.j : null;
+  const base = { dimensione, scorri: false };
+
+  const g = document.createElement("div");
+  g.className = "matmul" + (o.bias ? "" : " matmul--nobias");
+  if (o.chiave) g.dataset.diagramma = o.chiave;
+
+  const metti = (el, classe) => { el.classList.add(classe); g.appendChild(el); };
+
+  if (o.op) {
+    const d = document.createElement("div");
+    d.appendChild(o.op);
+    metti(d, "matmul__op");
+  }
+  const ob = o.ob || {}, oa = o.oa || {}, obias = o.obias || {}, oout = o.oout || {};
+  metti(matrice(o.b, { ...ob, ...base,
+    attenua: oppure(ob.attenua, fuoriColonna),
+    evidenzia: oppure(ob.evidenzia, laColonna),
+    colonnaScelta: sel ? sel.j : undefined }), "matmul__b");
+  if (o.bias) {
+    metti(matrice(comeRiga(o.bias), { ...obias, ...base, attenua: fuoriColonna, evidenzia: laColonna }), "matmul__bias");
+  }
+  metti(matrice(o.a, { ...oa, ...base,
+    attenua: oppure(oa.attenua, fuoriRiga),
+    evidenzia: oppure(oa.evidenzia, laRiga),
+    rigaScelta: sel ? sel.i : undefined }), "matmul__a");
+  metti(matrice(o.out, { ...oout, ...base, scelta: sel, clic: o.clic }), "matmul__out");
+
+  const scorri = document.createElement("div");
+  scorri.className = "heat-scroll";
+  scorri.appendChild(g);
+  return scorri;
+}
+
+/* Il mazzo delle teste: un tensore (B, nh, T, hs) con B = 1.
+     carte          [{ t, nome }], una per testa, nell'ordine delle teste
+     scelta         la testa davanti
+     clic(h)        le carte dietro sono bottoni che portano h davanti
+     matrice        le opzioni di matrice() per tutte le carte
+     davanti        quelle in più per la carta davanti (clic sulle celle…)
+     nome, forma    l'intestazione del mazzo intero
+     dimensione     "mini" per le miniature: niente intestazioni */
+function pila(carte, o = {}) {
+  const n = carte.length;
+  const davanti = o.scelta || 0;
+  const mini = (o.matrice && o.matrice.dimensione) === "mini";
+
+  const mazzo = document.createElement("div");
+  mazzo.className = "deck" + (mini ? " deck--mini" : "");
+  mazzo.style.setProperty("--n", String(n));
+
+  /* La carta davanti è al livello 0, le altre dietro in ordine di testa.
+     Nel documento vanno dalla più lontana alla più vicina: l'ultima
+     disegnata copre le altre. */
+  const livello = [];
+  let prossimo = 1;
+  for (let h = 0; h < n; h++) livello[h] = h === davanti ? 0 : prossimo++;
+  const ordine = carte.map((_, h) => h).sort((a, b) => livello[b] - livello[a]);
+
+  ordine.forEach(h => {
+    const dietro = h !== davanti;
+    const bottone = dietro && Boolean(o.clic);
+    const carta = document.createElement(bottone ? "button" : "div");
+    carta.className = "deck__card" + (dietro ? " is-back" : "");
+    carta.style.setProperty("--livello", String(livello[h]));
+    if (bottone) {
+      carta.type = "button";
+      carta.setAttribute("aria-label",
+        I18N.t({ it: "Porta davanti la testa ", en: "Bring forward head " }) + h);
+      carta.addEventListener("click", () => o.clic(h));
+    }
+    if (!mini && carte[h].nome) {
+      const e = document.createElement("span");
+      e.className = "deck__label";
+      e.textContent = carte[h].nome;
+      carta.appendChild(e);
+    }
+    const m = matrice(carte[h].t, { ...(o.matrice || {}), ...(dietro ? {} : o.davanti || {}), testa: false, scorri: false });
+    if (dietro) m.setAttribute("aria-hidden", "true");
+    carta.appendChild(m);
+    mazzo.appendChild(carta);
+  });
+
+  if (mini) return mazzo;
+
+  const box = document.createElement("div");
+  box.className = "tensor";
+  const testa = document.createElement("div");
+  testa.className = "tensor__head";
+  const nome = document.createElement("span");
+  nome.className = "tensor__name";
+  nome.textContent = o.nome || "";
+  testa.appendChild(nome);
+  if (o.forma) {
+    const f = document.createElement("span");
+    f.className = "tensor__shape";
+    f.textContent = o.forma;
+    testa.appendChild(f);
+  }
+  box.append(testa, mazzo);
+  return box;
+}
+
+/* Le carte di un mazzo dalla lista per testa della cache: A.q[0], A.att[0]… */
+const carte = (lista, nome) => lista.map((t, h) => ({ t, nome: nome + "[0, " + h + "]" }));
+
+/* Una miniatura per lo schema del Block. */
+const miniatura = (t, o = {}) => matrice(t, { ...o, dimensione: "mini", testa: false, scorri: false });
+
+/* Ridisegnare dopo un clic su una cella cancella il bottone che aveva il
+   focus: chi usa la tastiera si ritroverebbe in cima alla pagina. Questa
+   ricorda quale cella di quale disegno era, ridisegna, e la ritrova. */
+function conFocus(ridisegna) {
+  const a = document.activeElement;
+  const disegno = a && a.closest ? a.closest("[data-diagramma]") : null;
+  const chiave = disegno ? disegno.dataset.diagramma : null;
+  const i = a && a.dataset ? a.dataset.i : undefined;
+  const j = a && a.dataset ? a.dataset.j : undefined;
+  ridisegna();
+  if (chiave && i !== undefined) {
+    const cella = document.querySelector(
+      '[data-diagramma="' + chiave + '"] [data-i="' + i + '"][data-j="' + j + '"]');
+    if (cella) cella.focus({ preventScroll: true });
+  }
+}
+
+/* Un prodotto scalare scritto termine per termine, per i .readout. */
+function terminiProdotto(a, b, n, decimali = 2) {
+  const t = [];
+  for (let d = 0; d < n; d++) t.push(fmtNum(a(d), decimali) + "·" + fmtNum(b(d), decimali));
+  return t.join(" + ");
+}
+
 
 /* --------------------------------------------------------------------------
    Lo stato della pagina
@@ -1246,8 +1565,24 @@ const STATO = {
   cella: { i: 7, j: 2 },  // la cella cliccata nell'attenzione
   dropout_p: 0,
   mlp_strato: 0,
+  mlp_passo: 1,
+  schema_strato: 0,       // il Block disegnato nello schema
   preset: "pagina",
   uscita: null,           // l'ultimo forward(): logits, loss, cache
+  /* La cella scelta in ciascun prodotto disegnato. Dove la riga è la
+     posizione condivisa (pos) si tiene solo la colonna; logit è null
+     finché nessuno clicca, e allora segue il carattere giusto. */
+  scelte: {
+    leggenda: { i: 0, j: 1 },
+    leggenda_testa: 0,
+    qkv: { i: 7, j: 20 },
+    y: { i: 7, j: 0 },
+    proj: { i: 7, j: 0 },
+    fc: 0,
+    mproj: 0,
+    onehot: 0,
+    logit: null,
+  },
 };
 
 /* Lo stato dell'addestramento. Ha iter_num, optimizer e rng: gli stessi
@@ -1286,12 +1621,25 @@ function ricalcola() {
 function disegnaTutto() {
   disegnaStato();
   disegnaEmbedding();
+  disegnaSchema();
   disegnaLN();
   disegnaAttenzione();
   disegnaTeste();
   disegnaMLP();
+  disegnaTesta();
   disegnaLoss();
   disegnaGenerazione();
+}
+
+/* La posizione scelta è una sola per embedding, LayerNorm, MLP e lm_head:
+   cambiarla da uno di loro ridisegna tutti e quattro. */
+function cambiaPosizione(t) {
+  STATO.pos = Number(t);
+  STATO.scelte.logit = null;
+  disegnaEmbedding();
+  disegnaLN();
+  disegnaMLP();
+  disegnaTesta();
 }
 
 /* Le etichette delle posizioni: "0 F", "1 i"… */
@@ -1308,7 +1656,7 @@ function vociPosizione() {
    Il prompt: cinque campi, un valore solo
    -------------------------------------------------------------------------- */
 
-const CAMPI_PROMPT = ["prompt-emb", "prompt-ln", "prompt-attn", "prompt-mlp", "prompt-loss"];
+const CAMPI_PROMPT = ["prompt-emb", "prompt-schema", "prompt-ln", "prompt-attn", "prompt-mlp", "prompt-testa", "prompt-loss"];
 
 CAMPI_PROMPT.forEach(id => {
   const campo = nodo(id);
@@ -1319,6 +1667,7 @@ CAMPI_PROMPT.forEach(id => {
     const T = pulito.length;
     STATO.pos = Math.min(STATO.pos, T - 1);
     STATO.cella = { i: Math.min(STATO.cella.i, T - 1), j: Math.min(STATO.cella.j, T - 1) };
+    for (const k of ["qkv", "y", "proj"]) STATO.scelte[k].i = Math.min(STATO.scelte[k].i, T - 1);
     CAMPI_PROMPT.forEach(altro => { if (altro !== id) nodo(altro).value = pulito; });
     GEN.idx = encode(pulito);
     GEN.nuovi = 0;
@@ -1328,6 +1677,84 @@ CAMPI_PROMPT.forEach(id => {
      vocabolario spariscono. */
   campo.addEventListener("change", () => { campo.value = STATO.prompt; });
 });
+
+
+/* --------------------------------------------------------------------------
+   Come si leggono i disegni — tre esempi con numeri piccoli
+   -------------------------------------------------------------------------- */
+
+const ESEMPIO = {
+  a: { shape: [2, 3], data: Float64Array.from([1, 2, 0, 0, 1, 3]) },
+  b: { shape: [3, 2], data: Float64Array.from([2, 1, 0, 1, 1, 0]) },
+  m: { shape: [2, 3], data: Float64Array.from([1, 2, 3, 4, 5, 6]) },
+  sinistra: { shape: [2, 2], data: Float64Array.from([1, -1, 2, 0]) },
+  destra: { shape: [2, 2], data: Float64Array.from([3, 1, -2, 4]) },
+  teste: [
+    { shape: [2, 3], data: Float64Array.from([1, 0, -1, 2, 1, 0]) },
+    { shape: [2, 3], data: Float64Array.from([0, 3, 1, -1, 0, 2]) },
+  ],
+  bias: Float64Array.from([1, -2, 3]),
+};
+
+/* Il prodotto di due matrici piccole, solo per l'esempio: nel modello i
+   prodotti li fa linear(), qui sopra. */
+function prodottoEsempio(a, b) {
+  const [R, K] = a.shape, M = b.shape[1];
+  const out = tensor([R, M]);
+  for (let i = 0; i < R; i++)
+    for (let j = 0; j < M; j++)
+      for (let k = 0; k < K; k++) out.data[i * M + j] += a.data[i * K + k] * b.data[k * M + j];
+  return out;
+}
+
+function disegnaLeggenda() {
+  const E = ESEMPIO;
+  const sel = STATO.scelte.leggenda;
+  const out = prodottoEsempio(E.a, E.b);
+  const intero = { decimali: 0 };
+
+  riempi(nodo("leggenda-prodotto"), [prodotto({
+    chiave: "leggenda", sel,
+    a: E.a, oa: { nome: "a", forma: "(n, k)", righe: ["0", "1"], ...intero, dims: [null, "k = 3"] },
+    b: E.b, ob: { nome: "b", forma: "(k, m)", ...intero, dims: ["k = 3", null] },
+    out, oout: { nome: "a @ b", forma: "(n, m)", ...intero, dims: ["n = 2", "m = 2"] },
+    clic: (i, j) => conFocus(() => { STATO.scelte.leggenda = { i, j }; disegnaLeggenda(); }),
+  })]);
+  nodo("leggenda-lettura").innerHTML = "<b>(a @ b)[" + sel.i + ", " + sel.j + "]</b> = a[" + sel.i + "] · b[:, " + sel.j + "] = " +
+    terminiProdotto(d => E.a.data[sel.i * 3 + d], d => E.b.data[d * 2 + sel.j], 3, 0) +
+    " = <b>" + fmtNum(out.data[sel.i * 2 + sel.j], 0) + "</b>";
+
+  const affiancate = { shape: [2, 4], data: Float64Array.from([1, -1, 3, 1, 2, 0, -2, 4]) };
+  riempi(nodo("leggenda-forma"), [
+    tappa(matrice(E.m, { nome: "m", forma: "(2, 3)", righe: ["0", "1"], ...intero, evidenzia: i => i === 0, dims: ["2", "3"] })),
+    passaggio(op("forma", "ᵀ", "m.transpose(0, 1)", I18N.t({ it: "le righe diventano colonne", en: "rows become columns" }))),
+    tappa(matrice(trasposta(E.m), { nome: "m.T", forma: "(3, 2)", colonne: ["0", "1"], ...intero,
+      evidenzia: (i, j) => j === 0, dims: ["3", "2"] })),
+    tappa(
+      matrice(E.sinistra, { nome: "p", forma: "(2, 2)", ...intero, bande: [1, 1] }),
+      matrice(E.destra, { nome: "q", forma: "(2, 2)", ...intero, bande: [2, 2] }),
+    ),
+    passaggio(op("forma", "‖", "torch.cat([p, q], dim=1)", I18N.t({ it: "fianco a fianco", en: "side by side" }))),
+    tappa(matrice(affiancate, { nome: "pq", forma: "(2, 4)", ...intero, bande: [1, 1, 2, 2], dims: [null, "2 + 2 = 4"] })),
+  ]);
+
+  const piu = ripetiRiga(E.bias, 2);
+  const somma = { shape: [2, 3], data: E.teste[0].data.map((v, n) => v + piu.data[n]) };
+  riempi(nodo("leggenda-pila"), [
+    tappa(pila(E.teste.map((t, h) => ({ t, nome: I18N.t({ it: "testa ", en: "head " }) + h })), {
+      nome: "x", forma: "(nh, 2, 3)", scelta: STATO.scelte.leggenda_testa,
+      clic: h => { STATO.scelte.leggenda_testa = h; disegnaLeggenda(); },
+      matrice: intero,
+    })),
+    tappa(
+      matrice(E.teste[0], { nome: "x[0]", forma: "(2, 3)", ...intero }),
+      operatore("+"),
+      matrice(piu, { nome: "b", forma: "(3,) → (2, 3)", ...intero, fantasma: i => i > 0 }),
+      operatore("="),
+      matrice(somma, { nome: "x[0] + b", forma: "(2, 3)", ...intero }),
+    ),
+  ]);
+}
 
 
 /* --------------------------------------------------------------------------
@@ -1520,39 +1947,176 @@ nodo("batch-i").addEventListener("input", disegnaBatch);
 
 function disegnaEmbedding() {
   const c = STATO.uscita.cache;
-  const T = c.t, C = config.n_embd;
+  const T = c.t, C = config.n_embd, V = config.vocab_size;
   const righe = etichettePosizioni();
   const p = STATO.pos;
-  const forma = (a, b) => "(" + a + ", " + b + ")";
+  const idx = c.idx[0];
+  const wte = STATO.model.transformer.wte.weight;
+  const wpe = STATO.model.transformer.wpe.weight;
+  const letta = new Set(idx);
 
   aggiornaChip(nodo("emb-pos"), vociPosizione(), p);
 
+  /* Due letture di righe in parallelo, poi una somma cella per cella. */
+  const colonna = valori => ({ shape: [valori.length, 1], data: Float64Array.from(valori) });
+  const pos = Array.from({ length: T }, (_, t) => t);
   riempi(nodo("emb-tensori"), [
-    matrice(c.tok_emb, { nome: "tok_emb", forma: forma(T, C), compatta: true, righe, rigaScelta: p }),
-    operatore("+"),
-    matrice(c.pos_emb, { nome: "pos_emb", forma: forma(T, C), compatta: true, righe: righe.map((_, t) => String(t)), rigaScelta: p }),
-    operatore("="),
-    matrice(c.x0, { nome: "x", forma: forma(T, C), compatta: true, righe, rigaScelta: p }),
+    tappa(
+      matrice(colonna(idx), { nome: "idx", forma: "(B, T)", righe, neutra: true, decimali: 0,
+        rigaScelta: p, scelta: { i: p, j: 0 }, dims: ["T = " + T, null] }),
+      matrice(wte, { nome: "wte.weight", forma: "(V, C)", dimensione: "fine",
+        attenua: i => !letta.has(i), evidenzia: i => i === idx[p], dims: ["V = " + V, "C = " + C] }),
+      matrice(colonna(pos), { nome: "pos", forma: "(T,)", righe: pos.map(String), neutra: true, decimali: 0,
+        rigaScelta: p, scelta: { i: p, j: 0 }, dims: ["T = " + T, null] }),
+      matrice(wpe, { nome: "wpe.weight", forma: "(block_size, C)", dimensione: "compatta",
+        righe: Array.from({ length: config.block_size }, (_, t) => String(t)),
+        attenua: i => i >= T, evidenzia: i => i === p, dims: ["block_size = " + config.block_size, "C = " + C] }),
+    ),
+    passaggio(
+      op("forma", "[i]", "tok_emb = self.transformer.wte(idx)",
+        I18N.t({ it: "la riga idx[t] di wte, per ogni t", en: "row idx[t] of wte, for every t" })),
+      op("forma", "[i]", "pos_emb = self.transformer.wpe(pos)",
+        I18N.t({ it: "la riga t di wpe", en: "row t of wpe" })),
+    ),
+    tappa(
+      matrice(c.tok_emb, { nome: "tok_emb", forma: "(B, T, C)", compatta: true, righe, evidenzia: i => i === p, rigaScelta: p, dims: ["T = " + T, "C = " + C] }),
+      operatore("+"),
+      matrice(c.pos_emb, { nome: "pos_emb", forma: "(T, C)", compatta: true, righe: pos.map(String), evidenzia: i => i === p, rigaScelta: p, dims: ["T = " + T, "C = " + C] }),
+      operatore("="),
+      matrice(c.x0, { nome: "x", forma: "(B, T, C)", compatta: true, righe, evidenzia: i => i === p, rigaScelta: p, dims: ["T = " + T, "C = " + C] }),
+    ),
+    passaggio(op("elemento", "+", "x = self.transformer.drop(tok_emb + pos_emb)",
+      I18N.t({ it: "pos_emb (T, C) vale per ogni elemento del batch: il broadcast aggiunge B; drop ha p = 0",
+               en: "pos_emb (T, C) applies to every batch element: broadcasting adds B; drop has p = 0" }))),
   ]);
 
   /* La riga scelta, con i numeri. Le tre righe condividono la scala, così
      i colori si confrontano. */
-  const id = c.idx[0][p];
+  const id = idx[p];
   const tok = ritaglia(c.tok_emb, p, p + 1, 0, C);
-  const pos = ritaglia(c.pos_emb, p, p + 1, 0, C);
+  const rigaPos = ritaglia(c.pos_emb, p, p + 1, 0, C);
   const x = ritaglia(c.x0, p, p + 1, 0, C);
   let scala = 0;
-  for (const v of [...tok.data, ...pos.data, ...x.data]) scala = Math.max(scala, Math.abs(v));
+  for (const v of [...tok.data, ...rigaPos.data, ...x.data]) scala = Math.max(scala, Math.abs(v));
   riempi(nodo("emb-zoom"), [
     matrice(tok, { nome: "wte.weight[" + id + "]", forma: "(" + C + ",)  " + mostra(itos[id]), scala }),
     operatore("+"),
-    matrice(pos, { nome: "wpe.weight[" + p + "]", forma: "(" + C + ",)", scala }),
+    matrice(rigaPos, { nome: "wpe.weight[" + p + "]", forma: "(" + C + ",)", scala }),
     operatore("="),
     matrice(x, { nome: "x[0, " + p + "]", forma: "(" + C + ",)", scala }),
   ]);
+
+  disegnaUnoCaldo();
 }
 
-preparaChip(nodo("emb-pos"), v => { STATO.pos = Number(v); disegnaEmbedding(); disegnaLN(); disegnaMLP(); });
+/* Il riquadro: la stessa lettura come prodotto per un one-hot. Sono 1.700
+   celle in un riquadro quasi sempre chiuso: si disegna solo quando è aperto. */
+function disegnaUnoCaldo() {
+  if (!nodo("emb-onehot").closest("details").open) return;
+  const c = STATO.uscita.cache;
+  const T = c.t, C = config.n_embd, V = config.vocab_size;
+  const p = STATO.pos;
+  const idx = c.idx[0];
+  const id = idx[p];
+  const wte = STATO.model.transformer.wte.weight;
+  const j = STATO.scelte.onehot;
+  const unoCaldo = tensor([T, V]);
+  idx.forEach((v, t) => { unoCaldo.data[t * V + v] = 1; });
+  riempi(nodo("emb-onehot"), [prodotto({
+    dimensione: "fine", chiave: "onehot", sel: { i: p, j },
+    op: op("prodotto", "@", "one_hot(idx) @ wte.weight",
+      I18N.t({ it: "= wte(idx), con 64 prodotti per zero in ogni cella", en: "= wte(idx), with 64 products by zero in each cell" })),
+    a: unoCaldo, oa: { nome: "one_hot(idx)", forma: "(T, V)", neutra: false, scala: 1, dims: [null, "V = " + V] },
+    b: wte, ob: { nome: "wte.weight", forma: "(V, C)", scelta: { i: id, j }, dims: ["V = " + V, null] },
+    out: c.tok_emb, oout: { nome: "tok_emb", forma: "(T, C)", dims: ["T = " + T, "C = " + C] },
+    clic: (i, jj) => conFocus(() => { STATO.scelte.onehot = jj; cambiaPosizione(i); }),
+  })]);
+  nodo("emb-onehot-lettura").innerHTML =
+    "<b>tok_emb[" + p + ", " + j + "]</b> = Σ<sub>v</sub> one_hot[" + p + ", v] · wte[v, " + j + "] = 1 · wte[" + id + ", " + j +
+    "] = <b>" + fmtNum(wte.data[id * C + j], 4) + "</b>" +
+    I18N.t({
+      it: " — l'unico 1 della riga " + p + " sta nella colonna " + id + " ('" + esc(mostra(itos[id])) + "'), e gli altri 64 termini valgono zero.",
+      en: " — the only 1 in row " + p + " is in column " + id + " ('" + esc(mostra(itos[id])) + "'), and the other 64 terms are zero.",
+    });
+}
+
+nodo("emb-onehot").closest("details").addEventListener("toggle", disegnaUnoCaldo);
+
+preparaChip(nodo("emb-pos"), v => conFocus(() => cambiaPosizione(v)));
+
+
+/* --------------------------------------------------------------------------
+   Parte seconda — lo schema del Block
+   -------------------------------------------------------------------------- */
+
+/* Lo schema è scritto nella pagina, operazione per operazione; qui si
+   riempiono solo le miniature: ogni [data-tensore] riceve il tensore che
+   quell'operazione produce, per il Block scelto. Le forme si leggono dalle
+   proporzioni: qkv è tre volte più largo di x, att è un triangolo per
+   testa, lo strato nascosto dell'MLP è quattro volte più largo. */
+function disegnaSchema() {
+  const c = STATO.uscita.cache;
+  const l = STATO.schema_strato;
+  const b = c.blocks[l], A = b.attn;
+  const T = c.t, C = config.n_embd;
+  const futura = (i, j) => j > i;
+  const scalate = A.att_raw[0].map(t => ({ shape: [T, T], data: t.data.map(z => z * A.scala) }));
+  const mazzo = (lista, o = {}) => pila(lista.map(t => ({ t })), { matrice: { dimensione: "mini", ...o } });
+
+  aggiornaChip(nodo("schema-strato"), [0, 1].map(v => ({ valore: v, etichetta: "h." + v })), l);
+
+  const miniature = {
+    x_in: () => miniatura(b.x_in),
+    ln_1: () => miniatura(b.ln_1.out),
+    qkv: () => miniatura(A.qkv),
+    split: () => [0, 1, 2].map(n => miniatura(ritaglia(A.qkv, 0, T, n * C, (n + 1) * C))),
+    teste: () => mazzo(A.q[0]),
+    att_raw: () => mazzo(A.att_raw[0]),
+    att_scala: () => mazzo(scalate),
+    att_maschera: () => mazzo(scalate, { maschera: futura }),
+    att: () => mazzo(A.att[0], { maschera: futura }),
+    y_teste: () => mazzo(A.y_h[0]),
+    y: () => miniatura(A.y),
+    attn_out: () => miniatura(A.out),
+    x_mid: () => miniatura(b.x_mid),
+    ln_2: () => miniatura(b.ln_2.out),
+    h_fc: () => miniatura(b.mlp.h_fc),
+    h_gelu: () => miniatura(b.mlp.h_gelu),
+    mlp_out: () => miniatura(b.mlp.out),
+    x_out: () => miniatura(b.x_out),
+  };
+
+  document.querySelectorAll("#schema-block [data-tensore]").forEach(el => {
+    const f = miniature[el.dataset.tensore];
+    if (!f) return;
+    const r = f();
+    riempi(el, Array.isArray(r) ? r : [r]);
+  });
+}
+
+preparaChip(nodo("schema-strato"), v => { STATO.schema_strato = Number(v); disegnaSchema(); });
+
+/* Ogni operazione dello schema è un link alla sezione che la spiega. Prima
+   che il browser ci arrivi, il laboratorio di destinazione viene messo sul
+   Block e sul passo giusti. */
+nodo("schema-block").addEventListener("click", e => {
+  const a = e.target.closest("a");
+  if (!a) return;
+  const l = STATO.schema_strato;
+  if (a.dataset.ln) {
+    STATO.ln = "h." + l + "." + a.dataset.ln;
+    disegnaLN();
+  }
+  if (a.dataset.passo) {
+    STATO.strato = l;
+    vaiAlPasso(Number(a.dataset.passo));
+  }
+  if (a.dataset.mlp) {
+    STATO.mlp_strato = l;
+    STATO.mlp_passo = Number(a.dataset.mlp);
+    disegnaMLP();
+  }
+});
 
 
 /* --------------------------------------------------------------------------
@@ -1588,6 +2152,48 @@ function barre(g, valori, x0, y0, larghezza, altezza, scala, classi) {
   }
 }
 
+/* Il calcolo intero, su tutte le T righe: le statistiche di ogni riga,
+   poi le due operazioni cella per cella, con quello che il broadcast
+   ripete disegnato in trasparenza. La riga scelta ha il filo sottile. */
+function disegnaFlussoLN(x, ln, mod, p) {
+  const T = x.shape[0], C = config.n_embd;
+  const righe = etichettePosizioni();
+  const nome = STATO.ln;
+  const mu = Float64Array.from(ln.mean);
+  const sigma = Float64Array.from(ln.rstd, r => 1 / r);
+  const xhat = tensor([T, C]);
+  for (let i = 0; i < T; i++)
+    for (let j = 0; j < C; j++) xhat.data[i * C + j] = (x.data[i * C + j] - mu[i]) * ln.rstd[i];
+
+  const riga = i => i === p;
+  const dimsTC = ["T = " + T, "C = " + C];
+  const piena = (t, n, extra = {}) => matrice(t, { nome: n, forma: "(T, C)", compatta: true, righe,
+    evidenzia: riga, rigaScelta: p, dims: dimsTC, ...extra });
+  const colonna = (v, n) => matrice({ shape: [T, 1], data: v }, { nome: n, forma: "(T, 1)", dimensione: "larga",
+    righe, decimali: 4, evidenzia: riga, rigaScelta: p, dims: ["T = " + T, "1"] });
+  const perRiga = (v, n) => piena(ripetiColonna(v, C), n, { fantasma: (i, j) => j > 0, forma: "(T, 1) → (T, C)" });
+  const perColonna = (v, n) => piena(ripetiRiga(v, T), n, { fantasma: i => i > 0, forma: "(C,) → (T, C)" });
+
+  const fila = [
+    tappa(piena(x, "x")),
+    passaggio(op("riga", "μσ", "F.layer_norm(x, …, eps=1e-5)",
+      I18N.t({ it: "per ogni riga, la media e la deviazione dei suoi C numeri", en: "for each row, the mean and deviation of its C numbers" }))),
+    tappa(colonna(mu, "μ"), colonna(sigma, "√(σ² + ε)")),
+    passaggio(op("elemento", "−÷", "x̂ = (x − μ) / √(σ² + ε)",
+      I18N.t({ it: "μ e √(σ² + ε) valgono per tutta la riga: il broadcast li ripete su ogni colonna",
+               en: "μ and √(σ² + ε) hold for the whole row: broadcasting repeats them on every column" }))),
+    tappa(piena(x, "x"), operatore("−"), perRiga(mu, "μ"), operatore("÷"), perRiga(sigma, "√(σ² + ε)"),
+      operatore("="), piena(xhat, "x̂")),
+    passaggio(op("elemento", "⊙+", "x̂ * " + nome + ".weight + " + nome + ".bias",
+      I18N.t({ it: "weight e bias valgono per ogni posizione: il broadcast li ripete su ogni riga",
+               en: "weight and bias hold for every position: broadcasting repeats them on every row" }))),
+    tappa(piena(xhat, "x̂"), operatore("⊙"), perColonna(mod.weight.data, nome + ".weight"),
+      operatore("+"), perColonna(mod.bias ? mod.bias.data : new Float64Array(C), nome + ".bias"),
+      operatore("="), piena(ln.out, nome + "(x)")),
+  ];
+  riempi(nodo("ln-diagramma"), fila);
+}
+
 function disegnaLN() {
   const C = config.n_embd;
   const scelte = ["h.0.ln_1", "h.0.ln_2", "h.1.ln_1", "h.1.ln_2", "ln_f"];
@@ -1596,6 +2202,7 @@ function disegnaLN() {
 
   const { x, ln, mod } = sceltaLN();
   const p = STATO.pos;
+  disegnaFlussoLN(x, ln, mod, p);
   const ingresso = Array.from(x.data.subarray(p * C, (p + 1) * C));
   const uscita = Array.from(ln.out.data.subarray(p * C, (p + 1) * C));
   const mu = ln.mean[p], rstd = ln.rstd[p];
@@ -1651,7 +2258,7 @@ function disegnaLN() {
 }
 
 preparaChip(nodo("ln-scelta"), v => { STATO.ln = v; disegnaLN(); });
-preparaChip(nodo("ln-pos"), v => { STATO.pos = Number(v); disegnaEmbedding(); disegnaLN(); disegnaMLP(); });
+preparaChip(nodo("ln-pos"), v => conFocus(() => cambiaPosizione(v)));
 
 
 /* --------------------------------------------------------------------------
@@ -1669,12 +2276,13 @@ function mascheraDropout(T, p) {
 
 function disegnaAttenzione() {
   const c = STATO.uscita.cache;
-  const T = c.t, C = config.n_embd, hs = C / config.n_head;
+  const T = c.t, C = config.n_embd, nh = config.n_head, hs = C / nh;
   const l = STATO.strato, h = STATO.testa, p = STATO.passo;
   const A = c.blocks[l].attn;
   const blocco = STATO.model.transformer.h[l].attn;
   const righe = etichettePosizioni();
   const sel = STATO.cella;
+  const scelte = STATO.scelte;
 
   aggiornaChip(nodo("attn-strato"), [0, 1].map(v => ({ valore: v, etichetta: "h." + v })), l);
   aggiornaChip(nodo("attn-testa"), [0, 1].map(v => ({
@@ -1702,65 +2310,116 @@ function disegnaAttenzione() {
   const raw = A.att_raw[0][h], att = A.att[0][h], yh = A.y_h[0][h];
   const futura = (i, j) => j > i;
   const scala = A.scala;
-  const cliccaCella = (i, j) => { STATO.cella = { i, j }; disegnaAttenzione(); };
+  const scalata = { shape: [T, T], data: raw.data.map(z => z * scala) };
+  const ridisegna = () => conFocus(disegnaAttenzione);
+  const cliccaCella = (i, j) => { STATO.cella = { i, j }; ridisegna(); };
+  const sceltaTesta = t => { STATO.testa = t; disegnaAttenzione(); };
+  const nomeQ = "q[0, " + h + "]", nomeK = "k[0, " + h + "]", nomeV = "v[0, " + h + "]";
+  const bandeTeste = Array.from({ length: C }, (_, j) => 1 + Math.floor(j / hs));
+  const tagliTeste = Array.from({ length: nh - 1 }, (_, t) => (t + 1) * hs);
+  const dimT = "T = " + T, dimC = "C = " + C, dimHs = "hs = " + hs;
+  const testaDaVicino = didascalia(I18N.t({ it: "La testa " + h + ", da vicino", en: "Head " + h + ", up close" }));
+
+  /* Un mazzo (B, nh, …) con la testa scelta davanti, che si può cambiare
+     cliccando la carta dietro. */
+  const mazzo = (lista, nome, forma, o = {}) => pila(carte(lista, nome), {
+    nome, forma, scelta: h, clic: sceltaTesta,
+    matrice: { dimensione: "compatta", righe, ...o },
+  });
+  /* att T × T con le etichette delle posizioni su righe e colonne */
+  const quadrata = (t, nome, o = {}) => matrice(t, {
+    nome, forma: "(T, T)", righe, colonne: righe, scelta: sel, clic: cliccaCella, ...o,
+  });
+
   const fila = [];
   let dettaglio = "";
-  const nomeQ = "q[0, " + h + "]", nomeK = "k[0, " + h + "]", nomeV = "v[0, " + h + "]";
-  const bandeTeste = Array.from({ length: C }, (_, j) => (Math.floor(j / hs) === 0 ? 1 : 2));
 
   if (p === 1) {
+    const s = scelte.qkv;
+    s.i = Math.min(s.i, T - 1);
     const x = c.blocks[l].ln_1.out;
     const bande = Array.from({ length: 3 * C }, (_, j) => 1 + Math.floor(j / C));
     fila.push(
-      matrice(x, { nome: "ln_1(x)", forma: "(T, C) = (" + T + ", " + C + ")", compatta: true, righe }),
-      operatore("@"),
-      matrice(trasposta(blocco.c_attn.weight), { nome: "c_attn.weight.T", forma: "(C, 3C) = (" + C + ", " + 3 * C + ")", compatta: true, bande }),
-      operatore("+"),
-      matrice(comeRiga(blocco.c_attn.bias), { nome: "c_attn.bias", forma: "(" + 3 * C + ",)", compatta: true, bande }),
-      operatore("="),
-      matrice(A.qkv, { nome: "qkv", forma: "(T, 3C) = (" + T + ", " + 3 * C + ")", compatta: true, righe, bande }),
+      tappa(prodotto({
+        dimensione: "compatta", chiave: "qkv", sel: s,
+        op: op("prodotto", "@", "self.c_attn(x)", "x @ c_attn.weight.T + c_attn.bias"),
+        a: x, oa: { nome: "ln_1(x)", forma: "(T, C)", righe, dims: [null, dimC] },
+        b: trasposta(blocco.c_attn.weight), ob: { nome: "c_attn.weight.T", forma: "(C, 3C)", bande, dims: [dimC, null] },
+        bias: blocco.c_attn.bias, obias: { nome: "+ c_attn.bias", forma: "(3C,)", bande },
+        out: A.qkv, oout: { nome: "qkv", forma: "(T, 3C)", dims: [dimT, "3C = " + 3 * C] },
+        clic: (i, j) => { scelte.qkv = { i, j }; ridisegna(); },
+      })),
+      passaggio(op("forma", "÷3", ".split(self.n_embd, dim=2)", "(B, T, 3C) → 3 × (B, T, C)")),
+      tappa(...["q", "k", "v"].map((nome, n) => matrice(ritaglia(A.qkv, 0, T, n * C, (n + 1) * C), {
+        nome, forma: "(B, T, C)", compatta: true, righe: n === 0 ? righe : null,
+        bande: Array(C).fill(n + 1), dims: [n === 2 ? dimT : null, dimC],
+        scelta: Math.floor(s.j / C) === n ? { i: s.i, j: s.j - n * C } : null,
+      }))),
     );
-    dettaglio = I18N.t({
-      it: "Le fasce sopra le colonne: <b>verde q</b>, <b>arancio k</b>, <b>blu v</b>. " +
-          "<b>split(16, dim=2)</b> taglia qkv in tre matrici (1, " + T + ", 16), una per fascia.",
-      en: "The bands above the columns: <b>green q</b>, <b>orange k</b>, <b>blue v</b>. " +
-          "<b>split(16, dim=2)</b> cuts qkv into three (1, " + T + ", 16) matrices, one per band.",
-    });
+    const parte = ["q", "k", "v"][Math.floor(s.j / C)];
+    const W = blocco.c_attn.weight.data, b = blocco.c_attn.bias.data;
+    dettaglio = "<b>qkv[" + s.i + ", " + s.j + "]</b> = ln_1(x)[" + s.i + "] · c_attn.weight[" + s.j + "] + c_attn.bias[" + s.j + "] = " +
+      terminiProdotto(d => x.data[s.i * C + d], d => W[s.j * C + d], C) + " + " + fmtNum(b[s.j]) +
+      " = <b>" + fmtNum(A.qkv.data[s.i * 3 * C + s.j], 4) + "</b>" +
+      I18N.t({
+        it: " — finisce in <b>" + parte + "</b>, colonna " + (s.j % C) + ", cioè nella testa " + Math.floor((s.j % C) / hs) + ".",
+        en: " — it ends up in <b>" + parte + "</b>, column " + (s.j % C) + ", that is in head " + Math.floor((s.j % C) / hs) + ".",
+      });
   }
 
   if (p === 2) {
     const qPiena = ritaglia(A.qkv, 0, T, 0, C);
     fila.push(
-      matrice(qPiena, { nome: "q", forma: "(B, T, C) = (1, " + T + ", " + C + ")", compatta: true, righe, bande: bandeTeste }),
-      operatore("→"),
+      tappa(matrice(qPiena, { nome: "q", forma: "(B, T, C)", compatta: true, righe, bande: bandeTeste, dims: [dimT, dimC] })),
+      passaggio(op("forma", "⊞", "q.view(B, T, self.n_head, C // self.n_head)", "(B, T, C) → (B, T, nh, hs)")),
+      tappa(matrice(qPiena, { nome: "q", forma: "(B, T, nh, hs)", compatta: true, righe, bande: bandeTeste,
+        fessure: tagliTeste, dims: [dimT, Array(nh).fill(dimHs)] })),
+      passaggio(op("forma", "ᵀ", ".transpose(1, 2)", "(B, T, nh, hs) → (B, nh, T, hs)")),
+      tappa(
+        mazzo(A.q[0], "q", "(B, nh, T, hs)", { dims: [dimT, dimHs] }),
+        mazzo(A.k[0], "k", "(B, nh, T, hs)", { righe: null, dims: [dimT, dimHs] }),
+        mazzo(A.v[0], "v", "(B, nh, T, hs)", { righe: null, dims: [dimT, dimHs] }),
+      ),
     );
-    for (let t = 0; t < config.n_head; t++) {
-      fila.push(matrice(A.q[0][t], {
-        nome: "q[0, " + t + "]", forma: "(T, hs) = (" + T + ", " + hs + ")", righe,
-        bande: Array(hs).fill(t + 1), attenua: () => t !== h,
-      }));
-    }
     dettaglio = I18N.t({
-      it: "Da <b>(1, " + T + ", 16)</b> a <b>(1, 2, " + T + ", 8)</b>. Le colonne 0–7 di q sono la testa 0, " +
-          "le colonne 8–15 la testa 1: nessun numero è cambiato, solo il modo di leggerli. k e v vengono divisi allo stesso modo.",
-      en: "From <b>(1, " + T + ", 16)</b> to <b>(1, 2, " + T + ", 8)</b>. Columns 0–7 of q are head 0, " +
-          "columns 8–15 head 1: no number has changed, only the way they are read. k and v are split the same way.",
+      it: "Da <b>(1, " + T + ", " + C + ")</b> a <b>(1, " + nh + ", " + T + ", " + hs + ")</b>. Le colonne 0–" + (hs - 1) +
+          " di q sono la testa 0, le colonne " + hs + "–" + (C - 1) + " la testa 1: nessun numero è cambiato, solo il modo di leggerli. " +
+          "Le teste diventano carte, una dietro l'altra: clicca quella dietro per portarla davanti.",
+      en: "From <b>(1, " + T + ", " + C + ")</b> to <b>(1, " + nh + ", " + T + ", " + hs + ")</b>. Columns 0–" + (hs - 1) +
+          " of q are head 0, columns " + hs + "–" + (C - 1) + " head 1: no number has changed, only the way they are read. " +
+          "The heads become cards, one behind the other: click the one behind to bring it forward.",
     });
   }
 
   if (p === 3) {
     fila.push(
-      matrice(q, { nome: nomeQ, forma: "(T, hs)", righe, rigaScelta: sel.i, attenua: i => i !== sel.i }),
-      operatore("@"),
-      matrice(trasposta(k), { nome: nomeK + ".T", forma: "(hs, T)", colonne: righe, colonnaScelta: sel.j, attenua: (i, j) => j !== sel.j }),
-      operatore("="),
-      matrice(raw, { nome: "att", forma: "(T, T)", righe, colonne: righe, scelta: sel, clic: cliccaCella }),
+      tappa(
+        mazzo(A.q[0], "q", "(B, nh, T, hs)"),
+        operatore("@"),
+        mazzo(A.k[0].map(trasposta), "k.T", "(B, nh, hs, T)", { righe: null }),
+        operatore("="),
+        mazzo(A.att_raw[0], "att", "(B, nh, T, T)"),
+      ),
+      testaDaVicino,
+      tappa(
+        matrice(k, { nome: nomeK, forma: "(T, hs)", righe, rigaScelta: sel.j, evidenzia: i => i === sel.j, dims: [dimT, dimHs] }),
+        op("forma", "ᵀ", "k.transpose(-2, -1)",
+          I18N.t({ it: "la riga j di k diventa la colonna j", en: "row j of k becomes column j" })),
+        matrice(trasposta(k), { nome: nomeK + ".T", forma: "(hs, T)", colonne: righe, colonnaScelta: sel.j,
+          evidenzia: (i, j) => j === sel.j, dims: [dimHs, dimT] }),
+      ),
+      tappa(prodotto({
+        chiave: "att", sel,
+        op: op("prodotto", "@", "q @ k.transpose(-2, -1)", "(T, hs) @ (hs, T) → (T, T)"),
+        a: q, oa: { nome: nomeQ, forma: "(T, hs)", righe, dims: [null, dimHs] },
+        b: trasposta(k), ob: { nome: nomeK + ".T", forma: "(hs, T)", colonne: righe, dims: [dimHs, null] },
+        out: raw, oout: { nome: "att", forma: "(T, T)", dims: [dimT, dimT] },
+        clic: cliccaCella,
+      })),
     );
-    const termini = [];
-    for (let d = 0; d < hs; d++)
-      termini.push(fmtNum(q.data[sel.i * hs + d]) + "·" + fmtNum(k.data[sel.j * hs + d]));
     dettaglio = "<b>att[" + sel.i + ", " + sel.j + "]</b> = q[" + sel.i + "] · k[" + sel.j + "] = " +
-      termini.join(" + ") + " = <b>" + fmtNum(raw.data[sel.i * T + sel.j], 4) + "</b>" +
+      terminiProdotto(d => q.data[sel.i * hs + d], d => k.data[sel.j * hs + d], hs) +
+      " = <b>" + fmtNum(raw.data[sel.i * T + sel.j], 4) + "</b>" +
       (sel.j > sel.i
         ? I18N.t({ it: " — una posizione futura: la maschera del passo 5 la cancellerà.",
                    en: " — a future position: the mask in step 5 will erase it." })
@@ -1768,11 +2427,10 @@ function disegnaAttenzione() {
   }
 
   if (p === 4) {
-    const scalata = { shape: [T, T], data: raw.data.map(z => z * scala) };
     fila.push(
-      matrice(raw, { nome: "q @ k.T", forma: "(T, T)", righe, colonne: righe, scelta: sel }),
-      operatore("× " + fmtNum(scala, 3) + " ="),
-      matrice(scalata, { nome: "att", forma: "(T, T)", righe, colonne: righe, scelta: sel, clic: cliccaCella }),
+      tappa(quadrata(raw, "q @ k.T", { dims: [dimT, dimT] })),
+      passaggio(op("elemento", "×", "* (1.0 / math.sqrt(k.size(-1)))", "× 1/√" + hs + " = × " + fmtNum(scala, 3))),
+      tappa(quadrata(scalata, "att", { dims: [dimT, dimT] })),
     );
     dettaglio = "<b>att[" + sel.i + ", " + sel.j + "]</b> = " + fmtNum(raw.data[sel.i * T + sel.j], 4) +
       " × 1/√" + hs + " = " + fmtNum(raw.data[sel.i * T + sel.j], 4) + " × " + fmtNum(scala, 4) +
@@ -1781,11 +2439,15 @@ function disegnaAttenzione() {
 
   if (p === 5) {
     const tril = { shape: [T, T], data: Float64Array.from({ length: T * T }, (_, n) => (n % T <= Math.floor(n / T) ? 1 : 0)) };
-    const scalata = { shape: [T, T], data: raw.data.map(z => z * scala) };
     fila.push(
-      matrice(tril, { nome: "self.bias[:, :, :T, :T]", forma: "(1, 1, T, T)", righe, colonne: righe, decimali: 0, scala: 1 }),
-      operatore("→"),
-      matrice(scalata, { nome: "att", forma: "(T, T)", righe, colonne: righe, maschera: futura, scelta: sel, clic: cliccaCella }),
+      tappa(
+        quadrata(scalata, "att"),
+        matrice(tril, { nome: "self.bias[:, :, :T, :T]", forma: "(1, 1, T, T)", righe, colonne: righe,
+          decimali: 0, scala: 1, scelta: sel }),
+      ),
+      passaggio(op("elemento", "−∞", "att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))",
+        I18N.t({ it: "dove bias vale 0, cioè sopra la diagonale", en: "where bias is 0, that is above the diagonal" }))),
+      tappa(quadrata(scalata, "att", { maschera: futura, dims: [dimT, dimT] })),
     );
     dettaglio = sel.j > sel.i
       ? I18N.t({
@@ -1803,28 +2465,35 @@ function disegnaAttenzione() {
   }
 
   if (p === 6) {
+    const espo = { shape: [T, T], data: scalata.data.map((z, n) => (n % T <= Math.floor(n / T) ? Math.exp(z) : 0)) };
     const somme = Array.from({ length: T }, (_, i) => {
+      let s = 0;
+      for (let j = 0; j < T; j++) s += espo.data[i * T + j];
+      return s;
+    });
+    const sommeAtt = Array.from({ length: T }, (_, i) => {
       let s = 0;
       for (let j = 0; j < T; j++) s += att.data[i * T + j];
       return "Σ " + fmtNum(s);
     });
-    fila.push(matrice(att, {
-      nome: "att = F.softmax(att, dim=-1)", forma: "(T, T)", righe, colonne: righe,
-      maschera: futura, testoMaschera: "0", scelta: sel, clic: cliccaCella, note: somme, scala: 1,
-    }));
+    fila.push(
+      tappa(quadrata(scalata, "att", { maschera: futura, rigaScelta: sel.i, evidenzia: i => i === sel.i })),
+      passaggio(op("elemento", "eˣ", "att.exp()",
+        I18N.t({ it: "dentro F.softmax: e elevato a ogni cella, e^−∞ = 0", en: "inside F.softmax: e to the power of each cell, e^−∞ = 0" }))),
+      tappa(quadrata(espo, "exp(att)", { maschera: futura, testoMaschera: "0", rigaScelta: sel.i,
+        evidenzia: i => i === sel.i, note: somme.map(s => "Σ " + fmtNum(s)) })),
+      passaggio(op("riga", "÷Σ", "F.softmax(att, dim=-1)",
+        I18N.t({ it: "ogni riga divisa per la sua somma", en: "each row divided by its own sum" }))),
+      tappa(quadrata(att, "att", { maschera: futura, testoMaschera: "0", note: sommeAtt, scala: 1 })),
+    );
     if (sel.j > sel.i) {
       dettaglio = "<b>att[" + sel.i + ", " + sel.j + "] = e<sup>−∞</sup> / … = 0</b>";
     } else {
-      const s = [];
-      let den = 0;
-      for (let j = 0; j <= sel.i; j++) {
-        const z = raw.data[sel.i * T + j] * scala;
-        den += Math.exp(z);
-        s.push("e<sup>" + fmtNum(z, 3) + "</sup>");
-      }
-      const z = raw.data[sel.i * T + sel.j] * scala;
-      dettaglio = "<b>att[" + sel.i + ", " + sel.j + "]</b> = e<sup>" + fmtNum(z, 3) + "</sup> / (" + s.join(" + ") +
-        ") = " + fmtNum(Math.exp(z), 4) + " / " + fmtNum(den, 4) + " = <b>" + fmtNum(att.data[sel.i * T + sel.j], 4) + "</b>";
+      const termini = [];
+      for (let j = 0; j <= sel.i; j++) termini.push("e<sup>" + fmtNum(scalata.data[sel.i * T + j], 3) + "</sup>");
+      const z = scalata.data[sel.i * T + sel.j];
+      dettaglio = "<b>att[" + sel.i + ", " + sel.j + "]</b> = e<sup>" + fmtNum(z, 3) + "</sup> / (" + termini.join(" + ") +
+        ") = " + fmtNum(Math.exp(z), 4) + " / " + fmtNum(somme[sel.i], 4) + " = <b>" + fmtNum(att.data[sel.i * T + sel.j], 4) + "</b>";
     }
   }
 
@@ -1837,84 +2506,125 @@ function disegnaAttenzione() {
       for (let j = 0; j < T; j++) s += dopo.data[i * T + j];
       return "Σ " + fmtNum(s);
     });
-    fila.push(matrice(dopo, {
-      nome: "attn_dropout(att)", forma: "(T, T)", righe, colonne: righe,
-      maschera: futura, testoMaschera: "0", note: somme, scala: 1,
-      attenua: (i, j) => pd > 0 && j <= i && m[i * T + j] === 0,
-    }));
+    const opzioni = { maschera: futura, testoMaschera: "0", scala: 1, clic: null, scelta: null };
+    fila.push(tappa(
+      quadrata(att, "att", opzioni),
+      pd ? matrice({ shape: [T, T], data: Float64Array.from(m) }, {
+        nome: "m", forma: "(T, T)", righe, colonne: righe, decimali: 0, scala: 1 }) : null,
+    ));
+    fila.push(passaggio(op("elemento", "p", "self.attn_dropout(att)",
+      pd ? "att ⊙ m / (1 − p),  p = " + fmtNum(pd, 1)
+         : I18N.t({ it: "p = 0: passa com'è", en: "p = 0: passes through unchanged" }))));
+    fila.push(tappa(quadrata(dopo, "att", { ...opzioni, note: somme,
+      attenua: (i, j) => pd > 0 && j <= i && m[i * T + j] === 0 })));
     dettaglio = pd === 0
       ? I18N.t({
           it: "<b>p = 0</b>: il passo restituisce att così com'è. È quello che succede sempre in valutazione, con model.eval().",
           en: "<b>p = 0</b>: the step returns att unchanged. That is what always happens in evaluation, with model.eval().",
         })
       : I18N.t({
-          it: "<b>p = 0,2</b>: le celle attenuate sono state azzerate, le altre moltiplicate per 1/(1 − 0,2) = 1,25. " +
+          it: "<b>p = 0,2</b>: le celle dove m vale 0 sono state azzerate, le altre moltiplicate per 1/(1 − 0,2) = 1,25. " +
               "Le somme di riga non valgono più 1, ma la loro media sì: è un'anteprima, il modello di questa pagina non la usa.",
-          en: "<b>p = 0.2</b>: the dimmed cells were zeroed, the others multiplied by 1/(1 − 0.2) = 1.25. " +
+          en: "<b>p = 0.2</b>: the cells where m is 0 were zeroed, the others multiplied by 1/(1 − 0.2) = 1.25. " +
               "Row sums are no longer 1, but their average is: this is a preview, the model on this page does not use it.",
         });
   }
 
   if (p === 8) {
-    const d = Math.min(sel.j, hs - 1);
-    const cliccaY = (i, j) => { STATO.cella = { i, j }; disegnaAttenzione(); };
+    const s = scelte.y;
+    s.i = Math.min(s.i, T - 1);
+    s.j = Math.min(s.j, hs - 1);
     fila.push(
-      matrice(att, { nome: "att", forma: "(T, T)", righe, colonne: righe, maschera: futura, testoMaschera: "0", scala: 1,
-        rigaScelta: sel.i, attenua: i => i !== sel.i }),
-      operatore("@"),
-      matrice(v, { nome: nomeV, forma: "(T, hs)", righe, colonnaScelta: d, attenua: (i, j) => j !== d || i > sel.i }),
-      operatore("="),
-      matrice(yh, { nome: "y[0, " + h + "]", forma: "(T, hs)", righe, scelta: { i: sel.i, j: d }, clic: cliccaY }),
+      tappa(
+        mazzo(A.att[0], "att", "(B, nh, T, T)", { maschera: futura }),
+        operatore("@"),
+        mazzo(A.v[0], "v", "(B, nh, T, hs)", { righe: null }),
+        operatore("="),
+        mazzo(A.y_h[0], "y", "(B, nh, T, hs)"),
+      ),
+      testaDaVicino,
+      tappa(prodotto({
+        chiave: "y", sel: s,
+        op: op("prodotto", "@", "y = att @ v", "(T, T) @ (T, hs) → (T, hs)"),
+        a: att, oa: { nome: "att", forma: "(T, T)", righe, maschera: futura, testoMaschera: "0", scala: 1, dims: [null, dimT] },
+        b: v, ob: { nome: nomeV, forma: "(T, hs)", attenua: i => i > s.i, dims: [dimT, null] },
+        out: yh, oout: { nome: "y[0, " + h + "]", forma: "(T, hs)", dims: [dimT, dimHs] },
+        clic: (i, j) => { scelte.y = { i, j }; ridisegna(); },
+      })),
     );
     const termini = [];
-    for (let j = 0; j <= sel.i; j++)
-      termini.push(fmtNum(att.data[sel.i * T + j], 3) + "·" + fmtNum(v.data[j * hs + d]));
-    dettaglio = "<b>y[" + sel.i + ", " + d + "]</b> = Σ<sub>j≤" + sel.i + "</sub> att[" + sel.i + ", j] · v[j, " + d + "] = " +
-      termini.join(" + ") + " = <b>" + fmtNum(yh.data[sel.i * hs + d], 4) + "</b>";
+    for (let j = 0; j <= s.i; j++)
+      termini.push(fmtNum(att.data[s.i * T + j], 3) + "·" + fmtNum(v.data[j * hs + s.j]));
+    dettaglio = "<b>y[" + s.i + ", " + s.j + "]</b> = Σ<sub>j≤" + s.i + "</sub> att[" + s.i + ", j] · v[j, " + s.j + "] = " +
+      termini.join(" + ") + " = <b>" + fmtNum(yh.data[s.i * hs + s.j], 4) + "</b>" +
+      I18N.t({
+        it: " — le righe di v dopo la " + s.i + " sono attenuate: la loro colonna in att è 0.",
+        en: " — the rows of v after " + s.i + " are dimmed: their column in att is 0.",
+      });
   }
 
   if (p === 9) {
-    for (let t = 0; t < config.n_head; t++) {
-      if (t) fila.push(operatore("|"));
-      fila.push(matrice(A.y_h[0][t], { nome: "y[0, " + t + "]", forma: "(T, hs)", righe, bande: Array(hs).fill(t + 1) }));
-    }
-    fila.push(operatore("→"), matrice(A.y, { nome: "y", forma: "(B, T, C) = (1, " + T + ", " + C + ")", righe, compatta: true, bande: bandeTeste }));
+    fila.push(
+      tappa(mazzo(A.y_h[0], "y", "(B, nh, T, hs)", { dims: [dimT, dimHs] })),
+      passaggio(op("forma", "ᵀ", "y.transpose(1, 2)", "(B, nh, T, hs) → (B, T, nh, hs)")),
+      tappa(matrice(A.y, { nome: "y", forma: "(B, T, nh, hs)", compatta: true, righe, bande: bandeTeste,
+        fessure: tagliTeste, dims: [dimT, Array(nh).fill(dimHs)] })),
+      passaggio(op("forma", "‖", ".contiguous().view(B, T, C)", "(B, T, nh, hs) → (B, T, C)")),
+      tappa(matrice(A.y, { nome: "y", forma: "(B, T, C)", compatta: true, righe, bande: bandeTeste,
+        dims: [dimT, "C = nh · hs = " + C] })),
+    );
     dettaglio = I18N.t({
-      it: "<b>y.transpose(1, 2).contiguous().view(B, T, C)</b>: le uscite delle due teste, 8 numeri ciascuna, " +
-          "incollate in un vettore da 16 per posizione.",
-      en: "<b>y.transpose(1, 2).contiguous().view(B, T, C)</b>: the outputs of the two heads, 8 numbers each, " +
-          "glued into one 16-number vector per position.",
+      it: "<b>y.transpose(1, 2).contiguous().view(B, T, C)</b>: il contrario del passo 2. Le carte tornano fianco a fianco, " +
+          "e le uscite delle due teste, " + hs + " numeri ciascuna, si incollano in un vettore da " + C + " per posizione.",
+      en: "<b>y.transpose(1, 2).contiguous().view(B, T, C)</b>: the reverse of step 2. The cards go back side by side, " +
+          "and the outputs of the two heads, " + hs + " numbers each, are glued into one " + C + "-number vector per position.",
     });
   }
 
   if (p === 10) {
+    const s = scelte.proj;
+    s.i = Math.min(s.i, T - 1);
     const xIn = c.blocks[l].x_in, xMid = c.blocks[l].x_mid;
     fila.push(
-      matrice(A.y, { nome: "y", forma: "(T, C)", righe, compatta: true }),
-      operatore("@"),
-      matrice(trasposta(blocco.c_proj.weight), { nome: "c_proj.weight.T", forma: "(C, C)", compatta: true }),
-      operatore("+ b ="),
-      matrice(A.out, { nome: "attn(ln_1(x))", forma: "(T, C)", righe, compatta: true }),
-      operatore("→"),
-      matrice(xIn, { nome: "x", forma: "(T, C)", righe, compatta: true }),
-      operatore("+"),
-      matrice(A.out, { nome: "attn(…)", forma: "(T, C)", righe, compatta: true }),
-      operatore("="),
-      matrice(xMid, { nome: "x", forma: "(T, C)", righe, compatta: true }),
+      tappa(prodotto({
+        dimensione: "compatta", chiave: "proj", sel: s,
+        op: op("prodotto", "@", "self.c_proj(y)", I18N.t({ it: "poi resid_dropout, con p = 0", en: "then resid_dropout, with p = 0" })),
+        a: A.y, oa: { nome: "y", forma: "(T, C)", righe, dims: [null, dimC] },
+        b: trasposta(blocco.c_proj.weight), ob: { nome: "c_proj.weight.T", forma: "(C, C)", dims: [dimC, null] },
+        bias: blocco.c_proj.bias, obias: { nome: "+ c_proj.bias", forma: "(C,)" },
+        out: A.out, oout: { nome: "attn(ln_1(x))", forma: "(T, C)", dims: [dimT, dimC] },
+        clic: (i, j) => { scelte.proj = { i, j }; ridisegna(); },
+      })),
+      passaggio(op("elemento", "+", "x = x + self.attn(self.ln_1(x))",
+        I18N.t({ it: "Block.forward, riga 104: la somma residua", en: "Block.forward, line 104: the residual sum" }))),
+      tappa(
+        matrice(xIn, { nome: "x", forma: "(T, C)", compatta: true, righe, scelta: s, dims: [null, dimC] }),
+        operatore("+"),
+        matrice(A.out, { nome: "attn(…)", forma: "(T, C)", compatta: true, scelta: s, dims: [null, dimC] }),
+        operatore("="),
+        matrice(xMid, { nome: "x", forma: "(T, C)", compatta: true, scelta: s, dims: [dimT, dimC] }),
+      ),
     );
     const norma = (t, i) => {
-      let s = 0;
-      for (let j = 0; j < C; j++) s += t.data[i * C + j] ** 2;
-      return Math.sqrt(s);
+      let q2 = 0;
+      for (let j = 0; j < C; j++) q2 += t.data[i * C + j] ** 2;
+      return Math.sqrt(q2);
     };
     let nx = 0, na = 0;
     for (let i = 0; i < T; i++) { nx += norma(xIn, i); na += norma(A.out, i); }
-    dettaglio = I18N.t({
-      it: "<b>x = x + self.attn(self.ln_1(x))</b>. In media il ramo dell'attenzione aggiunge un vettore di norma " +
-          fmtNum(na / T, 3) + " a un nastro di norma " + fmtNum(nx / T, 3) + ": una correzione, non una sostituzione.",
-      en: "<b>x = x + self.attn(self.ln_1(x))</b>. On average the attention branch adds a vector of norm " +
-          fmtNum(na / T, 3) + " to a stream of norm " + fmtNum(nx / T, 3) + ": a correction, not a replacement.",
-    });
+    const W = blocco.c_proj.weight.data, b = blocco.c_proj.bias.data;
+    const n = s.i * C + s.j;
+    dettaglio = "<b>attn[" + s.i + ", " + s.j + "]</b> = y[" + s.i + "] · c_proj.weight[" + s.j + "] + c_proj.bias[" + s.j + "] = " +
+      terminiProdotto(d => A.y.data[s.i * C + d], d => W[s.j * C + d], C) + " + " + fmtNum(b[s.j]) +
+      " = <b>" + fmtNum(A.out.data[n], 4) + "</b><br>" +
+      "<b>x[" + s.i + ", " + s.j + "]</b> = " + fmtNum(xIn.data[n], 4) + " + " + fmtNum(A.out.data[n], 4) +
+      " = <b>" + fmtNum(xMid.data[n], 4) + "</b>. " +
+      I18N.t({
+        it: "In media il ramo dell'attenzione aggiunge un vettore di norma " + fmtNum(na / T, 3) +
+            " a un nastro di norma " + fmtNum(nx / T, 3) + ": una correzione, non una sostituzione.",
+        en: "On average the attention branch adds a vector of norm " + fmtNum(na / T, 3) +
+            " to a stream of norm " + fmtNum(nx / T, 3) + ": a correction, not a replacement.",
+      });
   }
 
   riempi(nodo("attn-tensori"), fila);
@@ -2023,12 +2733,118 @@ function disegnaTeste() {
 
 function disegnaMLP() {
   const c = STATO.uscita.cache;
-  const C4 = 4 * config.n_embd;
-  aggiornaChip(nodo("mlp-strato"), [0, 1].map(v => ({ valore: v, etichetta: "h." + v })), STATO.mlp_strato);
+  const T = c.t, C = config.n_embd, C4 = 4 * config.n_embd;
+  const l = STATO.mlp_strato, passo = STATO.mlp_passo;
+  aggiornaChip(nodo("mlp-strato"), [0, 1].map(v => ({ valore: v, etichetta: "h." + v })), l);
   aggiornaChip(nodo("mlp-pos"), vociPosizione(), STATO.pos);
+  segnaChip(nodo("mlp-passi"), "passo", passo);
 
-  const m = c.blocks[STATO.mlp_strato].mlp;
+  /* il testo del passo e la riga del listato di MLP */
+  let righeCodice = [];
+  document.querySelectorAll("#mlp-passi-testo .step").forEach(s => {
+    const attivo = Number(s.dataset.passo) === passo;
+    s.hidden = !attivo;
+    if (attivo) righeCodice = s.dataset.righe.split(",").map(Number);
+  });
+  document.querySelectorAll("#listato-mlp .listing__line").forEach(r =>
+    r.classList.toggle("is-current", righeCodice.includes(Number(r.dataset.riga))));
+
+  const b = c.blocks[l];
+  const m = b.mlp;
+  const mod = STATO.model.transformer.h[l].mlp;
   const p = STATO.pos;
+  const righe = etichettePosizioni();
+  const riga = i => i === p;
+  const dimT = "T = " + T, dimC = "C = " + C, dim4C = "4C = " + C4;
+  /* Un clic su una cella sceglie anche la posizione: il grafico qui sotto
+     mostra la riga su cui si è cliccato. */
+  const scegli = (chiave, i, j) => conFocus(() => { STATO.scelte[chiave] = j; cambiaPosizione(i); });
+  const jFc = Math.min(STATO.scelte.fc, C4 - 1), jProj = Math.min(STATO.scelte.mproj, C - 1);
+  const fila = [];
+  let dettaglio = "";
+
+  if (passo === 1) {
+    const x = b.ln_2.out, W = mod.c_fc.weight.data, bias = mod.c_fc.bias.data;
+    fila.push(tappa(prodotto({
+      dimensione: "fine", chiave: "fc", sel: { i: p, j: jFc },
+      op: op("prodotto", "@", "x = self.c_fc(x)", "x @ c_fc.weight.T + c_fc.bias"),
+      a: x, oa: { nome: "ln_2(x)", forma: "(T, C)", dims: [null, dimC] },
+      b: trasposta(mod.c_fc.weight), ob: { nome: "c_fc.weight.T", forma: "(C, 4C)", dims: [dimC, null] },
+      bias: mod.c_fc.bias, obias: { nome: "+ c_fc.bias", forma: "(4C,)" },
+      out: m.h_fc, oout: { nome: "c_fc(x)", forma: "(T, 4C)", dims: [dimT, dim4C] },
+      clic: (i, j) => scegli("fc", i, j),
+    })));
+    dettaglio = "<b>c_fc(x)[" + p + ", " + jFc + "]</b> = ln_2(x)[" + p + "] · c_fc.weight[" + jFc + "] + c_fc.bias[" + jFc + "] = " +
+      terminiProdotto(d => x.data[p * C + d], d => W[jFc * C + d], C) + " + " + fmtNum(bias[jFc]) +
+      " = <b>" + fmtNum(m.h_fc.data[p * C4 + jFc], 4) + "</b>";
+  }
+
+  if (passo === 2) {
+    const n = p * C4 + jFc;
+    const opzioni = { forma: "(T, 4C)", compatta: true, righe, evidenzia: riga, rigaScelta: p,
+      scelta: { i: p, j: jFc }, clic: (i, j) => scegli("fc", i, j), dims: [dimT, dim4C] };
+    fila.push(
+      tappa(matrice(m.h_fc, { nome: "c_fc(x)", chiave: "gelu-prima", ...opzioni })),
+      passaggio(op("elemento", "Φ", "x = self.gelu(x)", "GELU(x) = x · Φ(x)")),
+      tappa(matrice(m.h_gelu, { nome: "gelu(x)", chiave: "gelu-dopo", ...opzioni })),
+    );
+    dettaglio = "<b>gelu(x)[" + p + ", " + jFc + "]</b> = x · Φ(x) = " + fmtNum(m.h_fc.data[n], 4) + " · " +
+      fmtNum(m.phi[n], 4) + " = <b>" + fmtNum(m.h_gelu.data[n], 4) + "</b>" +
+      I18N.t({
+        it: " — Φ(x) è la parte di x che passa: quasi tutta se x è grande, quasi niente se è molto negativo.",
+        en: " — Φ(x) is the share of x that gets through: almost all of it when x is large, almost none when it is very negative.",
+      });
+  }
+
+  if (passo === 3) {
+    const x = m.h_gelu, W = mod.c_proj.weight.data, bias = mod.c_proj.bias.data;
+    fila.push(tappa(prodotto({
+      dimensione: "fine", chiave: "mproj", sel: { i: p, j: jProj },
+      op: op("prodotto", "@", "x = self.c_proj(x)", "x @ c_proj.weight.T + c_proj.bias"),
+      a: x, oa: { nome: "gelu(x)", forma: "(T, 4C)", dims: [null, dim4C] },
+      b: trasposta(mod.c_proj.weight), ob: { nome: "c_proj.weight.T", forma: "(4C, C)", dims: [dim4C, null] },
+      bias: mod.c_proj.bias, obias: { nome: "+ c_proj.bias", forma: "(C,)" },
+      out: m.out, oout: { nome: "c_proj(x)", forma: "(T, C)", dims: [dimT, dimC] },
+      clic: (i, j) => scegli("mproj", i, j),
+    })));
+    dettaglio = "<b>c_proj(x)[" + p + ", " + jProj + "]</b> = gelu(x)[" + p + "] · c_proj.weight[" + jProj + "] + c_proj.bias[" + jProj + "] = Σ<sub>64</sub> … = " +
+      terminiProdotto(d => x.data[p * C4 + d], d => W[jProj * C4 + d], 4) + " + … + " + fmtNum(bias[jProj]) +
+      " = <b>" + fmtNum(m.out.data[p * C + jProj], 4) + "</b>" +
+      I18N.t({ it: " (i primi 4 termini su 64)", en: " (the first 4 of 64 terms)" });
+  }
+
+  if (passo === 4) {
+    const n = p * C + jProj;
+    const opzioni = { forma: "(T, C)", compatta: true, scelta: { i: p, j: jProj }, evidenzia: riga };
+    fila.push(
+      tappa(matrice(m.out, { nome: "c_proj(x)", righe, ...opzioni, dims: [dimT, dimC] })),
+      passaggio(op("elemento", "p", "x = self.dropout(x)", I18N.t({ it: "p = 0: passa com'è", en: "p = 0: passes through unchanged" }))),
+      passaggio(op("elemento", "+", "x = x + self.mlp(self.ln_2(x))",
+        I18N.t({ it: "Block.forward, riga 105: la seconda somma residua", en: "Block.forward, line 105: the second residual sum" }))),
+      tappa(
+        matrice(b.x_mid, { nome: "x", righe, ...opzioni, dims: [null, dimC] }),
+        operatore("+"),
+        matrice(m.out, { nome: "mlp(…)", ...opzioni, dims: [null, dimC] }),
+        operatore("="),
+        matrice(b.x_out, { nome: "x", ...opzioni, dims: [dimT, dimC] }),
+      ),
+    );
+    dettaglio = "<b>x[" + p + ", " + jProj + "]</b> = " + fmtNum(b.x_mid.data[n], 4) + " + " + fmtNum(m.out.data[n], 4) +
+      " = <b>" + fmtNum(b.x_out.data[n], 4) + "</b>" +
+      I18N.t({
+        it: l === config.n_layer - 1
+          ? ". È l'uscita dell'ultimo Block: da qui si va a ln_f e lm_head."
+          : ". È l'ingresso del Block h." + (l + 1) + ".",
+        en: l === config.n_layer - 1
+          ? ". This is the output of the last Block: from here on, ln_f and lm_head."
+          : ". This is the input of Block h." + (l + 1) + ".",
+      });
+  }
+
+  riempi(nodo("mlp-tensori"), fila);
+  nodo("mlp-dettaglio").innerHTML = dettaglio;
+
+  /* Il grafico: i 4C numeri nascosti della posizione scelta. */
   const prima = Array.from(m.h_fc.data.subarray(p * C4, (p + 1) * C4));
   const dopo = Array.from(m.h_gelu.data.subarray(p * C4, (p + 1) * C4));
   const scala = Math.max(...prima.map(Math.abs)) || 1;
@@ -2053,7 +2869,13 @@ function disegnaMLP() {
 }
 
 preparaChip(nodo("mlp-strato"), v => { STATO.mlp_strato = Number(v); disegnaMLP(); });
-preparaChip(nodo("mlp-pos"), v => { STATO.pos = Number(v); disegnaEmbedding(); disegnaLN(); disegnaMLP(); });
+preparaChip(nodo("mlp-pos"), v => conFocus(() => cambiaPosizione(v)));
+nodo("mlp-passi").addEventListener("click", e => {
+  const b = e.target.closest("button.chip");
+  if (!b) return;
+  STATO.mlp_passo = Number(b.dataset.passo);
+  disegnaMLP();
+});
 
 function disegnaGelu() {
   const x = Number(nodo("gelu-x").value) / 100;
@@ -2105,18 +2927,98 @@ nodo("gelu-x").addEventListener("input", disegnaGelu);
    Parte terza — logits e loss
    -------------------------------------------------------------------------- */
 
+/* ln_f e lm_head: il vettore di ogni posizione contro la tabella wte,
+   trasposta. La cella scelta, finché nessuno clicca, è quella del
+   carattere giusto: il suo logit è un prodotto scalare con l'embedding
+   di quel carattere. */
+function disegnaTesta() {
+  const c = STATO.uscita.cache;
+  const T = c.t, C = config.n_embd, V = config.vocab_size;
+  const righe = etichettePosizioni();
+  const p = STATO.pos;
+  const wte = STATO.model.transformer.wte.weight;
+  aggiornaChip(nodo("testa-pos"), vociPosizione(), p);
+
+  const riga = c.logits.data.subarray(p * V, (p + 1) * V);
+  let migliore = 0;
+  for (let j = 1; j < V; j++) if (riga[j] > riga[migliore]) migliore = j;
+  const target = c.targets[p];
+  const j = STATO.scelte.logit !== null ? STATO.scelte.logit : target !== -1 ? target : migliore;
+
+  riempi(nodo("testa-tensori"), [
+    tappa(matrice(c.x_final, { nome: "x", forma: "(B, T, C)", compatta: true, righe,
+      evidenzia: i => i === p, rigaScelta: p, dims: ["T = " + T, "C = " + C] })),
+    passaggio(op("riga", "μσ", "x = self.transformer.ln_f(x)",
+      I18N.t({ it: "l'ultima LayerNorm, fuori dai Block", en: "the last LayerNorm, outside the Blocks" }))),
+    tappa(prodotto({
+      dimensione: "fine", chiave: "logit", sel: { i: p, j },
+      op: op("prodotto", "@", "logits = self.lm_head(x)",
+        I18N.t({ it: "lm_head.weight è wte.weight: nessun bias", en: "lm_head.weight is wte.weight: no bias" })),
+      a: c.ln_f.out, oa: { nome: "ln_f(x)", forma: "(T, C)", dims: [null, "C = " + C] },
+      b: trasposta(wte), ob: { nome: "wte.weight.T", forma: "(C, V)", dims: ["C = " + C, null] },
+      out: c.logits, oout: { nome: "logits", forma: "(T, V)", dims: ["T = " + T, "V = " + V] },
+      clic: (i, jj) => conFocus(() => { cambiaPosizione(i); STATO.scelte.logit = jj; disegnaTesta(); }),
+    })),
+  ]);
+
+  nodo("testa-dettaglio").innerHTML =
+    "<b>logits[" + p + ", " + j + "]</b> = ln_f(x)[" + p + "] · wte.weight[" + j + "] = " +
+    terminiProdotto(d => c.ln_f.out.data[p * C + d], d => wte.data[j * C + d], C) +
+    " = <b>" + fmtNum(c.logits.data[p * V + j], 4) + "</b>" +
+    I18N.t({
+      it: " — la colonna " + j + " è l'embedding di '" + esc(mostra(itos[j])) + "'" +
+          (j === target ? ", il carattere giusto dopo la posizione " + p : j === migliore ? ", il preferito del modello" : "") +
+          ": più il vettore gli somiglia, più quel carattere è probabile.",
+      en: " — column " + j + " is the embedding of '" + esc(mostra(itos[j])) + "'" +
+          (j === target ? ", the right character after position " + p : j === migliore ? ", the model's favourite" : "") +
+          ": the more the vector resembles it, the more likely that character is.",
+    });
+}
+
+preparaChip(nodo("testa-pos"), v => conFocus(() => cambiaPosizione(v)));
+
 function disegnaLoss() {
   const c = STATO.uscita.cache;
   const T = c.t, V = config.vocab_size;
   const righe = etichettePosizioni();
   const targets = c.targets;
 
-  riempi(nodo("loss-logits"), [matrice(c.logits, {
-    nome: "logits", forma: "(B, T, vocab_size) = (1, " + T + ", " + V + ")", compatta: true, righe,
-  })]);
-  /* il riquadro sui logit dei caratteri giusti: più celle, quindi a mano */
-  const celle = nodo("loss-logits").querySelectorAll(".heat__cell");
-  targets.forEach((t, i) => { if (t !== -1) celle[i * V + t].classList.add("is-focus"); });
+  /* Il calcolo di F.cross_entropy, a pezzi: softmax di ogni riga, la
+     probabilità del carattere giusto, −log, la media. La riga con
+     target −1 non entra. */
+  const giusto = (i, j) => targets[i] === j;
+  const ignorata = i => targets[i] === -1;
+  const pT = tensor([T, 1]), nll = tensor([T, 1]);
+  let sommaNll = 0, quante = 0;
+  for (let i = 0; i < T; i++) {
+    if (ignorata(i)) continue;
+    pT.data[i] = c.probs.data[i * V + targets[i]];
+    nll.data[i] = -Math.log(pT.data[i]);
+    sommaNll += nll.data[i];
+    quante++;
+  }
+  const colonna = (t, nome, extra = {}) => matrice(t, { nome, forma: "(T, 1)", dimensione: "larga", righe, decimali: 3,
+    maschera: i => ignorata(i), testoMaschera: "—", ...extra });
+  const dimTV = ["T = " + T, "V = " + V];
+  riempi(nodo("loss-logits"), [
+    tappa(matrice(c.logits, { nome: "logits", forma: "(B, T, V)", compatta: true, righe,
+      evidenzia: giusto, attenua: i => ignorata(i), dims: dimTV })),
+    passaggio(op("riga", "÷Σ", "F.cross_entropy(logits.view(-1, logits.size(-1)), …)",
+      I18N.t({ it: "dentro: la softmax di ogni riga, eˣ diviso la somma", en: "inside: the softmax of each row, eˣ over the sum" }))),
+    tappa(matrice(c.probs, { nome: "probs", forma: "(B·T, V)", compatta: true, righe,
+      evidenzia: giusto, attenua: i => ignorata(i), dims: dimTV })),
+    passaggio(op("forma", "[t]", "probs[n, targets[n]]",
+      I18N.t({ it: "di ogni riga, solo la probabilità del carattere giusto; targets = −1 è saltato",
+               en: "from each row, only the probability of the right character; targets = −1 is skipped" }))),
+    tappa(
+      colonna(pT, "p(target)", { dims: ["T = " + T, null] }),
+      op("elemento", "−log", "-log(p)"),
+      colonna(nll, "−log p", { dims: ["T = " + T, null] }),
+      op("riga", "x̄", ".mean()", I18N.t({ it: "su " + quante + " righe", en: "over " + quante + " rows" })),
+      matrice({ shape: [1, 1], data: Float64Array.from([quante ? sommaNll / quante : NaN]) },
+        { nome: "loss", forma: "()", dimensione: "larga", decimali: 3 }),
+    ),
+  ]);
 
   const corpo = nodo("loss-tabella");
   corpo.textContent = "";
@@ -2604,6 +3506,7 @@ riempi(nodo("vocabolario"), chars.map((ch, i) => gettone(ch, i)));
 disegnaTesto();
 disegnaBatch();
 disegnaMappa();
+disegnaLeggenda();
 disegnaScala();
 disegnaGelu();
 disegnaLR();
