@@ -388,6 +388,20 @@ Written down so future changes do not drift.
   `learning_rate` into `LEARNING_RATE` and `μ` into `M`. Put `.ident` on the
   label if it is all code, or on a span inside it. In `nanogpt.js`, the
   `tessera()` keys mark code with backticks for the same reason.
+- **nanoGPT's drawings are built from a few primitives** in section 6 of
+  `nanogpt.js`: `matrice()` (one tensor, with optional rulers, cuts and
+  broadcast copies), `prodotto()` (the row × column layout of a product),
+  `pila()` (a `(B, nh, …)` tensor as a deck of cards), and `op()` with
+  `tappa()` / `passaggio()` (the operation pill and the top-to-bottom flow).
+  `matrice()` gives every cell an explicit grid row and column and makes each
+  row exactly one cell tall: that is what keeps the left factor's rows level
+  with the result's in a product. So in a product all matrices share one
+  `dimensione`, and neither of the two side by side may have column headers
+  or bands. The drawings only read `forward()`'s cache, never compute model
+  maths of their own. Each clickable product keeps its selected cell in
+  `STATO.scelte`, and `conFocus()` puts the keyboard focus back on the clicked
+  cell after the redraw. The four operation kinds' labels (`TIPI_OP`) are also
+  written by hand in both pages' reading key and in `/stile/`: change all three.
 - **nanoGPT's training fetches `/assets/data/shakespeare.txt`.** It is a static
   file on the same origin, downloaded only when the visitor presses Train;
   nothing the visitor types is sent anywhere, so the client-side promise on the
