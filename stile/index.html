@@ -1145,6 +1145,217 @@ The the thin thar yit be wist no o ath, e questo è il testo che scrive il model
 &lt;th&gt;Parametro (&lt;span class="ident"&gt;named_parameters&lt;/span&gt;)&lt;/th&gt;</pre>
 
 
+  <p class="eyebrow">Codice: operazioni e flusso</p>
+
+  <p class="figcap">
+    <span class="mono">.op</span> è quello che sta fra due tensori: un glifo, il
+    codice che esegue l'operazione e il suo tipo. I tipi sono quattro e si
+    riconoscono dal bordo e dal glifo, non da un colore nuovo:
+    <span class="mono">--prodotto</span> (Linear e @), <span class="mono">--forma</span>
+    (view, transpose, split, cat, a bordo tratteggiato), <span class="mono">--elemento</span>
+    (cella per cella) e <span class="mono">--riga</span> (softmax, layer_norm: lungo
+    una dimensione). <span class="mono">.flow</span> mette in colonna le tappe,
+    <span class="mono">.flow__stage</span>, una fila di tensori, e i passaggi,
+    <span class="mono">.flow__op</span>, con la freccia. Un
+    <span class="mono">a.op</span> è anche un link.
+  </p>
+
+  <div class="flow">
+    <div class="flow__stage">
+      <div class="op op--prodotto"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">x @ W.T + b</code><span class="op__kind">prodotto · righe × colonne</span></span></div>
+      <div class="op op--forma"><span class="op__glyph" aria-hidden="true">ᵀ</span><span class="op__body"><code class="op__code">k.transpose(-2, -1)</code><span class="op__kind">forma · nessun numero cambia</span></span></div>
+      <div class="op op--elemento"><span class="op__glyph" aria-hidden="true">+</span><span class="op__body"><code class="op__code">x + attn(x)</code><span class="op__kind">cella per cella</span></span></div>
+      <div class="op op--riga"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax(att, dim=-1)</code><span class="op__kind">lungo una dimensione</span></span></div>
+    </div>
+    <div class="flow__op">
+      <div class="op op--forma"><span class="op__glyph" aria-hidden="true">÷3</span><span class="op__body"><code class="op__code">.split(self.n_embd, dim=2)</code><span class="op__kind">forma · nessun numero cambia</span><span class="op__note">(B, T, 3C) → 3 × (B, T, C)</span></span></div>
+    </div>
+    <div class="flow__stage"><span class="mono">q</span><span class="mono">k</span><span class="mono">v</span></div>
+  </div>
+
+  <pre class="code">&lt;div class="flow"&gt;
+  &lt;div class="flow__stage"&gt;…tensori…&lt;/div&gt;
+  &lt;div class="flow__op"&gt;
+    &lt;div class="op op--forma"&gt;
+      &lt;span class="op__glyph" aria-hidden="true"&gt;÷3&lt;/span&gt;
+      &lt;span class="op__body"&gt;
+        &lt;code class="op__code"&gt;.split(self.n_embd, dim=2)&lt;/code&gt;
+        &lt;span class="op__kind"&gt;forma · nessun numero cambia&lt;/span&gt;
+        &lt;span class="op__note"&gt;(B, T, 3C) → 3 × (B, T, C)&lt;/span&gt;
+      &lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="flow__stage"&gt;…&lt;/div&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Codice: prodotto riga per colonna, righelli, broadcast</p>
+
+  <p class="figcap">
+    <span class="mono">.matmul</span> è lo schema di Falk: il primo fattore in
+    basso a sinistra, il secondo in alto, il risultato in basso a destra. La riga
+    del primo e la colonna del secondo si incontrano nella cella del risultato.
+    Le tre matrici usano la stessa misura di cella e le due affiancate non hanno
+    intestazioni di colonna, altrimenti le righe non cadono alla stessa altezza.
+    <span class="mono">--nobias</span> toglie la riga del bias.
+    <span class="mono">.heat__ruler--x</span> e <span class="mono">--y</span> sono i
+    righelli delle dimensioni; <span class="mono">is-pick</span> è il filo sottile
+    sulla riga e sulla colonna che si moltiplicano, <span class="mono">is-ghost</span>
+    la copia che aggiunge un broadcast. Le misure di cella sono
+    <span class="mono">--compact</span>, <span class="mono">--fine</span>,
+    <span class="mono">--mini</span> (solo colore) e <span class="mono">--wide</span>
+    (con il numero, più larga). In una pagina vera le griglie le costruisce
+    <span class="mono">matrice()</span> in nanogpt.js, che dà a ogni cella riga e
+    colonna esplicite.
+  </p>
+
+  <div class="heat-scroll">
+    <div class="matmul matmul--nobias">
+      <div class="matmul__op"><div class="op op--prodotto"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">a @ b</code><span class="op__kind">prodotto · righe × colonne</span></span></div></div>
+      <div class="tensor matmul__b">
+        <div class="tensor__head"><span class="tensor__name">b</span><span class="tensor__shape">(k, m)</span></div>
+        <div class="heat demo-griglia" data-colonne="2" data-righe="3" role="table" aria-label="b">
+          <div class="heat__ruler heat__ruler--y" aria-hidden="true">k = 3</div>
+          <div class="heat__cell is-dim" role="cell">2</div><div class="heat__cell is-pick" role="cell">1</div>
+          <div class="heat__cell is-dim" role="cell">0</div><div class="heat__cell is-pick" role="cell">1</div>
+          <div class="heat__cell is-dim" role="cell">1</div><div class="heat__cell is-pick" role="cell">0</div>
+        </div>
+      </div>
+      <div class="tensor matmul__a">
+        <div class="tensor__head"><span class="tensor__name">a</span><span class="tensor__shape">(n, k)</span></div>
+        <div class="heat demo-griglia" data-colonne="3" data-righe="2" role="table" aria-label="a">
+          <div class="heat__ruler heat__ruler--x" aria-hidden="true">k = 3</div>
+          <div class="heat__cell is-pick" role="cell">1</div><div class="heat__cell is-pick" role="cell">2</div><div class="heat__cell is-pick" role="cell">0</div>
+          <div class="heat__cell is-dim" role="cell">0</div><div class="heat__cell is-dim" role="cell">1</div><div class="heat__cell is-dim" role="cell">3</div>
+        </div>
+      </div>
+      <div class="tensor matmul__out">
+        <div class="tensor__head"><span class="tensor__name">a @ b</span><span class="tensor__shape">(n, m)</span></div>
+        <div class="heat demo-griglia" data-colonne="2" data-righe="2" role="table" aria-label="a @ b">
+          <div class="heat__ruler heat__ruler--x" aria-hidden="true">m = 2</div>
+          <div class="heat__cell" role="cell">2</div><div class="heat__cell is-focus" role="cell">3</div>
+          <div class="heat__cell" role="cell">3</div><div class="heat__cell" role="cell">1</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tensors">
+    <div class="tensor">
+      <div class="tensor__head"><span class="tensor__name">bias</span><span class="tensor__shape">(C,) → (T, C)</span></div>
+      <div class="heat demo-griglia" data-colonne="3" data-righe="2" role="table" aria-label="bias ripetuto">
+        <div class="heat__ruler heat__ruler--x" aria-hidden="true">C = 3</div>
+        <div class="heat__cell" role="cell">1</div><div class="heat__cell" role="cell">−2</div><div class="heat__cell" role="cell">3</div>
+        <div class="heat__cell is-ghost" role="cell">1</div><div class="heat__cell is-ghost" role="cell">−2</div><div class="heat__cell is-ghost" role="cell">3</div>
+      </div>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="heat-scroll"&gt;
+  &lt;div class="matmul"&gt;            &lt;!-- --nobias se non c'è il bias --&gt;
+    &lt;div class="matmul__op"&gt;&lt;div class="op op--prodotto"&gt;…&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="tensor matmul__b"&gt;…&lt;/div&gt;      &lt;!-- secondo fattore, in alto --&gt;
+    &lt;div class="tensor matmul__bias"&gt;…&lt;/div&gt;   &lt;!-- una riga sola --&gt;
+    &lt;div class="tensor matmul__a"&gt;…&lt;/div&gt;      &lt;!-- primo fattore, a sinistra --&gt;
+    &lt;div class="tensor matmul__out"&gt;…&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class="heat__ruler heat__ruler--x" aria-hidden="true"&gt;C = 16&lt;/div&gt;
+&lt;div class="heat__cell is-pick"&gt;…&lt;/div&gt;   &lt;div class="heat__cell is-ghost"&gt;…&lt;/div&gt;
+&lt;div class="heat heat--fine"&gt;…&lt;/div&gt;    &lt;!-- --compact, --fine, --mini, --wide --&gt;</pre>
+
+
+  <p class="eyebrow">Codice: mazzo di teste</p>
+
+  <p class="figcap">
+    Un tensore (B, nh, T, hs) ha una dimensione in più di quelle che una pagina
+    sa disegnare: le nh matrici sono carte, la testa scelta davanti. Le carte
+    dietro sono bottoni e cliccarle porta quella testa davanti. Il mazzo vuole
+    <span class="mono">--n</span>, il numero di carte, e ogni carta il suo
+    <span class="mono">--livello</span>, 0 per quella davanti: le scrive il
+    JavaScript. Nel documento le carte vanno dalla più lontana alla più vicina.
+    <span class="mono">--mini</span> è la versione delle miniature.
+  </p>
+
+  <div class="tensor">
+    <div class="tensor__head"><span class="tensor__name">q</span><span class="tensor__shape">(B, nh, T, hs)</span></div>
+    <div class="deck" id="demo-mazzo">
+      <button class="deck__card is-back" type="button" aria-label="Porta davanti la testa 1">
+        <span class="deck__label">q[0, 1]</span>
+        <div class="heat demo-griglia" data-colonne="3" data-righe="2" aria-hidden="true">
+          <div class="heat__cell">0</div><div class="heat__cell">3</div><div class="heat__cell">1</div>
+          <div class="heat__cell">−1</div><div class="heat__cell">0</div><div class="heat__cell">2</div>
+        </div>
+      </button>
+      <div class="deck__card">
+        <span class="deck__label">q[0, 0]</span>
+        <div class="heat demo-griglia" data-colonne="3" data-righe="2" role="table" aria-label="q[0, 0]">
+          <div class="heat__cell" role="cell">1</div><div class="heat__cell" role="cell">0</div><div class="heat__cell" role="cell">−1</div>
+          <div class="heat__cell" role="cell">2</div><div class="heat__cell" role="cell">1</div><div class="heat__cell" role="cell">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="deck"&gt;                      &lt;!-- --n dal JavaScript --&gt;
+  &lt;button class="deck__card is-back" type="button" aria-label="Porta davanti la testa 1"&gt;
+    &lt;span class="deck__label"&gt;q[0, 1]&lt;/span&gt;…   &lt;!-- --livello: 1 --&gt;
+  &lt;/button&gt;
+  &lt;div class="deck__card"&gt;&lt;span class="deck__label"&gt;q[0, 0]&lt;/span&gt;…&lt;/div&gt;   &lt;!-- --livello: 0 --&gt;
+&lt;/div&gt;</pre>
+
+
+  <p class="eyebrow">Codice: schema di un Block</p>
+
+  <p class="figcap">
+    Il flusso residuo è la linea a sinistra, <span class="mono">.stream</span>;
+    <span class="mono">.stream__x</span> è il tensore che ci scorre, con il
+    pallino. Ogni <span class="mono">.stream__branch</span> se ne stacca, mette in
+    fila le sue operazioni, <span class="mono">.stream__op</span>, ognuna con la
+    miniatura del tensore che produce, e torna sulla linea con il
+    <span class="mono">.stream__plus</span> di <span class="mono">.stream__add</span>.
+    Le operazioni sono <span class="mono">a.op</span>: link al punto della pagina
+    che le spiega.
+  </p>
+
+  <ol class="stream">
+    <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span></li>
+    <li class="stream__branch">
+      <p class="stream__code">x = x + self.mlp(self.ln_2(x))</p>
+      <ol class="stream__ops">
+        <li class="stream__op">
+          <a class="op op--riga" href="#"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_2</code></span></a>
+          <span class="stream__mini"></span>
+          <span class="stream__shape">(B, T, C)</span>
+        </li>
+        <li class="stream__op">
+          <a class="op op--prodotto" href="#"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_fc</code></span></a>
+          <span class="stream__mini"></span>
+          <span class="stream__shape">(B, T, 4C)</span>
+        </li>
+      </ol>
+      <p class="stream__add"><a class="stream__plus" href="#" aria-label="Somma residua">+</a>x + mlp(ln_2(x))</p>
+    </li>
+    <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span></li>
+  </ol>
+
+  <pre class="code">&lt;ol class="stream"&gt;
+  &lt;li class="stream__x"&gt;&lt;span&gt;x&lt;/span&gt;&lt;span class="stream__shape"&gt;(B, T, C)&lt;/span&gt;&lt;/li&gt;
+  &lt;li class="stream__branch"&gt;
+    &lt;p class="stream__code"&gt;x = x + self.mlp(self.ln_2(x))&lt;/p&gt;
+    &lt;ol class="stream__ops"&gt;
+      &lt;li class="stream__op"&gt;
+        &lt;a class="op op--riga" href="#…"&gt;…&lt;/a&gt;
+        &lt;span class="stream__mini" data-tensore="ln_2"&gt;&lt;/span&gt;
+        &lt;span class="stream__shape"&gt;(B, T, C)&lt;/span&gt;
+      &lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;p class="stream__add"&gt;&lt;a class="stream__plus" href="#…" aria-label="…"&gt;+&lt;/a&gt;x + mlp(…)&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;</pre>
+
+
   <p class="eyebrow">Colori</p>
 
   <div class="prose">
@@ -1197,6 +1408,33 @@ The the thin thar yit be wist no o ath, e questo è il testo che scrive il model
     cella.style.setProperty("--tinta", "var(--heat-" + (i % 3 ? "pos" : "neg") + ")");
     cella.style.setProperty("--mescola", v + "%");
   });
+
+  /* Le griglie dei disegni di nanoGPT: colonne e righe alte quanto una
+     cella, più una traccia per il righello; i righelli si stendono sulle
+     celle che misurano. In una pagina vera lo fa matrice(). */
+  document.querySelectorAll(".demo-griglia").forEach(function (g) {
+    const K = Number(g.dataset.colonne), R = Number(g.dataset.righe);
+    const conY = g.querySelector(".heat__ruler--y"), conX = g.querySelector(".heat__ruler--x");
+    g.style.gridTemplateColumns = "repeat(" + K + ", var(--cella-l, 38px))" + (conY ? " auto" : "");
+    g.style.gridTemplateRows = "repeat(" + R + ", var(--cella-a, 28px))" + (conX ? " auto" : "");
+    g.querySelectorAll(".heat__ruler--y").forEach(function (r) {
+      r.style.gridColumn = String(K + 1);
+      r.style.gridRow = "1 / " + (R + 1);
+    });
+    g.querySelectorAll(".heat__ruler--x").forEach(function (r) {
+      r.style.gridColumn = "1 / " + (K + 1);
+      r.style.gridRow = String(R + 1);
+    });
+    g.querySelectorAll(".heat__cell").forEach(function (c) {
+      const v = parseFloat(c.textContent.replace("−", "-")) || 0;
+      c.style.setProperty("--tinta", "var(--heat-" + (v < 0 ? "neg" : "pos") + ")");
+      c.style.setProperty("--mescola", Math.min(55, Math.abs(v) * 18) + "%");
+    });
+  });
+  const mazzo = document.getElementById("demo-mazzo");
+  mazzo.style.setProperty("--n", "2");
+  mazzo.children[0].style.setProperty("--livello", "1");
+  mazzo.children[1].style.setProperty("--livello", "0");
 
   document.getElementById("demo-toast").addEventListener("click", function () {
     const nodo = document.getElementById("toast");
