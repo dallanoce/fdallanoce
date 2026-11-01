@@ -1,0 +1,1907 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inside nanoGPT — Francesco Dallanoce</title>
+  <meta name="description" content="Il GPT di Karpathy riga per riga: ogni tensore di model.py con il suo nome, la sua forma e i suoi numeri, calcolati nel browser da un modello vero che si addestra davanti a te.">
+
+  <link rel="canonical" href="/it/strumenti/nanogpt/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/nanogpt/">
+  <link rel="alternate" hreflang="en" href="/en/tools/nanogpt/">
+  <link rel="alternate" hreflang="x-default" href="/en/tools/nanogpt/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<!--
+  Gli id dei comandi (prompt-attn, attn-testa, temperatura…) sono gli stessi
+  della pagina gemella inglese: un solo file JavaScript, nanogpt.js, serve
+  tutte e due le lingue.
+
+  Gli ancoraggi delle sezioni (#mappa, #blocco…) invece sono tradotti, come
+  tutti gli indirizzi del sito: finiscono nella barra dell'indirizzo e il
+  JavaScript non li usa.
+
+  I listati sono copiati da nanoGPT al commit 3adf61e, con i numeri di riga
+  di quel commit. I nomi nel codice e nelle formule sono quelli del
+  sorgente e non si traducono: idx, tok_emb, att, c_attn restano idx,
+  tok_emb, att, c_attn anche nella pagina italiana.
+-->
+<main id="contenuto" class="wrap wrap--wide page">
+
+  <h1 class="title title--page">Inside nanoGPT</h1>
+  <p class="lede">
+    Il GPT di Karpathy riga per riga: ogni tensore di model.py con il suo
+    nome, la sua forma e i numeri che contiene, calcolati dal tuo browser su
+    un modello vero e piccolissimo, che puoi addestrare qui.
+  </p>
+
+  <div class="note">
+    <p>
+      Il codice citato è <a href="https://github.com/karpathy/nanoGPT/tree/3adf61e154c3fe3fca428ad6bc3818b27a3b8291">nanoGPT</a>
+      di Andrej Karpathy (licenza MIT), fermo al commit
+      <span class="mono">3adf61e</span>: i numeri di riga dei listati sono quelli.
+      I nomi delle variabili sono gli stessi del sorgente, così questa pagina si
+      legge con <span class="mono">model.py</span> aperto accanto.
+    </p>
+    <p>
+      Ogni numero è calcolato nel tuo browser: niente è precalcolato e niente
+      viene inviato da nessuna parte.
+    </p>
+  </div>
+
+  <p class="eyebrow">Indice</p>
+
+  <nav class="index" aria-label="Indice">
+    <a class="index__row" href="#mappa">
+      <span class="index__main">
+        <span class="index__label">La mappa</span>
+        <span class="index__note">Il modello di questa pagina, GPTConfig, e la strada che fa un carattere da idx a logits.</span>
+      </span>
+      <span class="index__meta">#mappa</span>
+    </a>
+    <a class="index__row" href="#dati">
+      <span class="index__main">
+        <span class="index__label">Parte prima — Dai caratteri ai vettori</span>
+        <span class="index__note">encode e decode, get_batch, e i due embedding che diventano x.</span>
+      </span>
+      <span class="index__meta">#dati</span>
+    </a>
+    <a class="index__row" href="#blocco">
+      <span class="index__main">
+        <span class="index__label">Parte seconda — Il Block</span>
+        <span class="index__note">Flusso residuo, LayerNorm, l'attenzione causale in dieci passi, l'MLP con la GELU.</span>
+      </span>
+      <span class="index__meta">#blocco</span>
+    </a>
+    <a class="index__row" href="#uscita">
+      <span class="index__main">
+        <span class="index__label">Parte terza — Dall'ultimo vettore alla loss</span>
+        <span class="index__note">ln_f, lm_head con i pesi condivisi, logits e cross_entropy.</span>
+      </span>
+      <span class="index__meta">#uscita</span>
+    </a>
+    <a class="index__row" href="#addestramento">
+      <span class="index__main">
+        <span class="index__label">Parte quarta — Addestramento</span>
+        <span class="index__note">Il ciclo di train.py, get_lr, AdamW, il taglio del gradiente, e un modello che impara davanti a te.</span>
+      </span>
+      <span class="index__meta">#addestramento</span>
+    </a>
+    <a class="index__row" href="#generazione">
+      <span class="index__main">
+        <span class="index__label">Parte quinta — Generazione</span>
+        <span class="index__note">generate(): la finestra di block_size, temperature, top_k, un carattere alla volta.</span>
+      </span>
+      <span class="index__meta">#generazione</span>
+    </a>
+  </nav>
+
+
+  <!-- ======================================================================
+       LA MAPPA
+       ====================================================================== -->
+  <section class="part" id="mappa">
+    <p class="part__num">Prima di cominciare</p>
+    <h2 class="part__title">La mappa</h2>
+    <p class="part__lead">
+      nanoGPT è un GPT-2 scritto in trecento righe. Questa pagina ne fa girare
+      una copia minuscola — stesso codice, stesse operazioni, dimensioni ridotte
+      finché ogni matrice si può stampare con i suoi numeri — e la segue dal
+      primo carattere all'ultima probabilità.
+    </p>
+
+    <!-- ---------- IL MODELLO DELLA PAGINA ---------- -->
+    <div class="block">
+      <h3 class="block__title">Il modello di questa pagina</h3>
+      <p class="block__note">
+        All'apertura i pesi sono quelli dell'inizializzazione di nanoGPT: numeri
+        casuali piccoli, un modello che non sa ancora niente. Puoi leggere la
+        pagina così, e vedere che forma ha un GPT al passo zero, oppure
+        addestrarlo subito: ci mette una ventina di secondi, e da lì in poi ogni
+        laboratorio mostra i pesi imparati.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <p class="lab__label">Pesi</p>
+          <button class="btn" id="addestra-rapido" type="button">Addestra</button>
+          <a class="mono" href="#laboratorio-addestramento">come funziona ↓</a>
+        </div>
+        <div class="lab__body">
+          <div class="stats" id="stato-pesi" aria-live="polite"></div>
+          <div class="verdict" id="stato-verdetto" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          <code class="code code--inline">block_size=8, vocab_size=65, n_layer=2, n_head=2, n_embd=16, dropout=0.0, bias=True</code>
+          — 7.760 parametri. Il vocabolario è quello vero di Tiny Shakespeare, quindi
+          gli id dei caratteri sono gli stessi che produce
+          <span class="mono">prepare.py</span>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- GPTCONFIG ---------- -->
+    <div class="block">
+      <h3 class="block__title">GPTConfig, e le lettere che userà tutta la pagina</h3>
+      <p class="block__note">
+        Sei numeri decidono la forma di ogni tensore. Nel codice compaiono con
+        il loro nome lungo e con una lettera sola; conviene impararle tutte e
+        due, perché i commenti di model.py usano le lettere.
+      </p>
+
+      <pre class="listing" id="listato-config"><code><span class="listing__line" data-riga="108">@dataclass</span
+><span class="listing__line" data-riga="109">class GPTConfig:</span
+><span class="listing__line" data-riga="110">    block_size: int = 1024</span
+><span class="listing__line" data-riga="111">    vocab_size: int = 50304 <span class="listing__comment"># GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency</span></span
+><span class="listing__line" data-riga="112">    n_layer: int = 12</span
+><span class="listing__line" data-riga="113">    n_head: int = 12</span
+><span class="listing__line" data-riga="114">    n_embd: int = 768</span
+><span class="listing__line" data-riga="115">    dropout: float = 0.0</span
+><span class="listing__line" data-riga="116">    bias: bool = True <span class="listing__comment"># True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster</span></span></code></pre>
+      <p class="listing__source">model.py · L108–L116 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L108-L116">GitHub</a></p>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Lettera</th>
+              <th scope="col">Nel codice</th>
+              <th scope="col">Che cos'è</th>
+              <th scope="col" class="table__num">Qui</th>
+              <th scope="col" class="table__num"><span class="ident">shakespeare_char</span></th>
+              <th scope="col" class="table__num"><span class="ident">gpt2</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="table__pick">B</span></td><td><span class="mono">b</span>, <span class="mono">batch_size</span></td>
+              <td>Quante sequenze passano insieme nel modello</td>
+              <td class="table__num">1 · 16</td><td class="table__num">64</td><td class="table__num">12</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">T</span></td><td><span class="mono">t</span>, <span class="mono">block_size</span></td>
+              <td>Quanti token di contesto, al massimo</td>
+              <td class="table__num">8</td><td class="table__num">256</td><td class="table__num">1024</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">C</span></td><td><span class="mono">n_embd</span></td>
+              <td>La larghezza del vettore di ogni token: il flusso residuo</td>
+              <td class="table__num">16</td><td class="table__num">384</td><td class="table__num">768</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">nh</span></td><td><span class="mono">n_head</span></td>
+              <td>Teste di attenzione in ogni Block</td>
+              <td class="table__num">2</td><td class="table__num">6</td><td class="table__num">12</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">hs</span></td><td><span class="mono">C // n_head</span></td>
+              <td>La larghezza di una testa</td>
+              <td class="table__num">8</td><td class="table__num">64</td><td class="table__num">64</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">V</span></td><td><span class="mono">vocab_size</span></td>
+              <td>Quanti token diversi esistono</td>
+              <td class="table__num">65</td><td class="table__num">65</td><td class="table__num">50.257</td>
+            </tr>
+            <tr>
+              <td><span class="table__pick">L</span></td><td><span class="mono">n_layer</span></td>
+              <td>Quanti Block in fila</td>
+              <td class="table__num">2</td><td class="table__num">6</td><td class="table__num">12</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="block__note">
+        B qui vale 1 nei laboratori, che fanno passare una frase sola, e 16
+        durante l'addestramento. shakespeare_char è la configurazione di
+        <span class="mono">config/train_shakespeare_char.py</span>; gpt2 è quella
+        che impone <span class="mono">from_pretrained('gpt2')</span>.
+      </p>
+    </div>
+
+    <!-- ---------- ARCHITETTURA ---------- -->
+    <div class="block">
+      <h3 class="block__title">La strada di un carattere</h3>
+      <p class="block__note">
+        Ogni riga è un modulo, nell'ordine in cui lo attraversa il passo in
+        avanti, con a destra la forma del tensore che ne esce. Il Block si
+        ripete n_layer volte. Scegli una configurazione per vedere come
+        cambiano le forme e dove stanno i parametri.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <p class="lab__label">Configurazione</p>
+          <div class="chips" id="config-chip" role="group" aria-label="Configurazione">
+            <button class="chip" type="button" data-preset="pagina" aria-pressed="true">questa pagina</button>
+            <button class="chip" type="button" data-preset="shakespeare_char" aria-pressed="false">shakespeare_char</button>
+            <button class="chip" type="button" data-preset="gpt2" aria-pressed="false">gpt2</button>
+          </div>
+        </div>
+        <div class="lab__body">
+          <nav class="index" aria-label="Moduli del modello">
+            <a class="index__row" href="#dati">
+              <span class="index__main">
+                <span class="index__label">idx</span>
+                <span class="index__note">Gli id dei caratteri: un intero fra 0 e vocab_size − 1 per posizione.</span>
+              </span>
+              <span class="index__meta" id="forma-idx">(B, 8)</span>
+            </a>
+            <a class="index__row" href="#embedding">
+              <span class="index__main">
+                <span class="index__label">wte(idx) + wpe(pos) → drop</span>
+                <span class="index__note">Una riga di wte per carattere, una di wpe per posizione, sommate.</span>
+              </span>
+              <span class="index__meta" id="forma-emb">(B, 8, 16)</span>
+            </a>
+            <a class="index__row" href="#schema">
+              <span class="index__main">
+                <span class="index__label">h[i] — Block × n_layer</span>
+                <span class="index__note">Due sotto-blocchi, ognuno con la sua LayerNorm e la sua somma residua.</span>
+              </span>
+              <span class="index__meta" id="forma-block">(B, 8, 16)</span>
+            </a>
+            <a class="index__row index__row--nested" href="#attenzione">
+              <span class="index__main">
+                <span class="index__label">x + attn(ln_1(x))</span>
+                <span class="index__note">Ogni posizione guarda le precedenti; dentro, una matrice att per testa.</span>
+              </span>
+              <span class="index__meta" id="forma-attn">att (B, 2, 8, 8)</span>
+            </a>
+            <a class="index__row index__row--nested" href="#mlp">
+              <span class="index__main">
+                <span class="index__label">x + mlp(ln_2(x))</span>
+                <span class="index__note">Ogni posizione per conto suo: si allarga a 4·C, GELU, si torna a C.</span>
+              </span>
+              <span class="index__meta" id="forma-mlp">(B, 8, 64)</span>
+            </a>
+            <a class="index__row" href="#uscita">
+              <span class="index__main">
+                <span class="index__label">ln_f → lm_head</span>
+                <span class="index__note">Un'ultima LayerNorm, poi un punteggio per ogni carattere del vocabolario.</span>
+              </span>
+              <span class="index__meta" id="forma-logits">(B, 8, 65)</span>
+            </a>
+            <a class="index__row" href="#loss">
+              <span class="index__main">
+                <span class="index__label">cross_entropy(logits, targets)</span>
+                <span class="index__note">Quanto il modello si è sorpreso del carattere giusto, in media.</span>
+              </span>
+              <span class="index__meta" id="forma-loss">()</span>
+            </a>
+          </nav>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Modulo</th>
+                  <th scope="col" class="table__num">Parametri</th>
+                  <th scope="col" class="table__num">× quante volte</th>
+                  <th scope="col" class="table__num">Totale</th>
+                </tr>
+              </thead>
+              <tbody id="mappa-parametri"></tbody>
+            </table>
+          </div>
+          <div class="verdict" id="mappa-verdetto" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          Il conto segue <span class="mono">get_num_params()</span>: lm_head non
+          aggiunge niente perché il suo peso è lo stesso tensore di wte, e il
+          numero che nanoGPT stampa all'avvio toglie wpe. Con questa regola
+          shakespeare_char dà 10,65M e gpt2 123,65M, gli stessi numeri del
+          terminale.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- COME SI LEGGONO I DISEGNI ---------- -->
+    <div class="block" id="disegni">
+      <h3 class="block__title">Come si leggono i disegni</h3>
+      <p class="block__note">
+        Da qui in avanti ogni passo del modello è disegnato allo stesso modo: i
+        tensori con la loro forma e, fra uno e l'altro, l'operazione che li lega
+        con il codice che la esegue. I righelli sotto e accanto a ogni matrice
+        dicono quanto è lunga ogni dimensione. Il colore è il segno, verde
+        positivo e rosso negativo, più intenso quanto più il numero è grande.
+        Nelle matrici piccole il numero è scritto nella cella; in quelle grandi
+        resta solo il colore, e il numero compare passandoci sopra.
+      </p>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>Prodotto: riga per colonna</h4>
+          <p>Il primo fattore in basso a sinistra, il secondo in alto. La riga
+            <i>i</i> del primo e la colonna <i>j</i> del secondo si incontrano
+            nella cella (<i>i</i>, <i>j</i>) del risultato, che è il loro prodotto
+            scalare. La dimensione interna <i>k</i> è la stessa nei due fattori, e
+            sparisce. Clicca una cella del risultato.</p>
+          <div class="flow" id="leggenda-prodotto"></div>
+          <div class="readout" id="leggenda-lettura" aria-live="polite"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Forma: gli stessi numeri, in un altro ordine</h4>
+          <p>transpose scambia righe e colonne; cat, split e view incollano,
+            tagliano e raggruppano. Nessun numero cambia valore: per questo il
+            bordo di queste operazioni è tratteggiato.</p>
+          <div class="flow" id="leggenda-forma"></div>
+        </div>
+        <div class="callout callout--good">
+          <h4>Teste e broadcast</h4>
+          <p>Un tensore con una dimensione in più è un mazzo di matrici: si vede
+            quella davanti, e cliccando la carta dietro la si porta davanti. Un
+            vettore sommato a una matrice vale per ogni sua riga: le copie che il
+            broadcast aggiunge sono in trasparenza.</p>
+          <div class="flow" id="leggenda-pila"></div>
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <div class="op op--prodotto"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">x @ W.T + b</code><span class="op__kind">prodotto · righe × colonne</span></span></div>
+          <p>Linear e @. Ogni numero del risultato dipende da una riga intera e da una colonna intera.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--forma"><span class="op__glyph" aria-hidden="true">ᵀ</span><span class="op__body"><code class="op__code">k.transpose(-2, -1)</code><span class="op__kind">forma · nessun numero cambia</span></span></div>
+          <p>view, transpose, split, cat. Cambia solo il modo in cui i numeri sono messi in fila.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--elemento"><span class="op__glyph" aria-hidden="true">+</span><span class="op__body"><code class="op__code">x + attn(x)</code><span class="op__kind">cella per cella</span></span></div>
+          <p>+, ×, gelu, masked_fill, dropout. Ogni cella per conto suo, senza guardare le vicine.</p>
+        </div>
+        <div class="callout callout--good">
+          <div class="op op--riga"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax(att, dim=-1)</code><span class="op__kind">lungo una dimensione</span></span></div>
+          <p>layer_norm, softmax, mean. Legge una dimensione intera, di solito una riga, e la trasforma insieme.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE PRIMA
+       ====================================================================== -->
+  <section class="part" id="dati">
+    <p class="part__num">Parte prima</p>
+    <h2 class="part__title">Dai caratteri ai vettori</h2>
+    <p class="part__lead">
+      Un modello linguistico non vede lettere: vede interi, e poi vettori.
+      Tre passaggi portano dal testo alla matrice <span class="mono">x</span>
+      che entra nel primo Block, e nessuno dei tre ha niente di misterioso.
+    </p>
+
+    <!-- ---------- ENCODE ---------- -->
+    <div class="block">
+      <h3 class="block__title">Il vocabolario: encode e decode</h3>
+      <p class="block__note">
+        La versione a caratteri di nanoGPT non usa un tokenizer: prende i
+        caratteri distinti del testo, li mette in ordine, e il numero di un
+        carattere è la sua posizione in quella lista. Su Tiny Shakespeare sono
+        65 — l'a capo, lo spazio, undici segni, le maiuscole e le minuscole.
+      </p>
+
+      <pre class="listing" id="listato-prepare"><code><span class="listing__line" data-riga="23"><span class="listing__comment"># get all the unique characters that occur in this text</span></span
+><span class="listing__line" data-riga="24">chars = sorted(list(set(data)))</span
+><span class="listing__line" data-riga="25">vocab_size = len(chars)</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="29"><span class="listing__comment"># create a mapping from characters to integers</span></span
+><span class="listing__line" data-riga="30">stoi = { ch:i for i,ch in enumerate(chars) }</span
+><span class="listing__line" data-riga="31">itos = { i:ch for i,ch in enumerate(chars) }</span
+><span class="listing__line" data-riga="32">def encode(s):</span
+><span class="listing__line" data-riga="33">    return [stoi[c] for c in s] <span class="listing__comment"># encoder: take a string, output a list of integers</span></span
+><span class="listing__line" data-riga="34">def decode(l):</span
+><span class="listing__line" data-riga="35">    return ''.join([itos[i] for i in l]) <span class="listing__comment"># decoder: take a list of integers, output a string</span></span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="37"><span class="listing__comment"># create the train and test splits</span></span
+><span class="listing__line" data-riga="38">n = len(data)</span
+><span class="listing__line" data-riga="39">train_data = data[:int(n*0.9)]</span
+><span class="listing__line" data-riga="40">val_data = data[int(n*0.9):]</span></code></pre>
+      <p class="listing__source">data/shakespeare_char/prepare.py · L23–L40 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/data/shakespeare_char/prepare.py#L23-L40">GitHub</a></p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="testo">Testo</label>
+          <input class="field__input field__input--compact" type="text" id="testo" value="First Citizen: hear me speak." spellcheck="false" autocomplete="off">
+        </div>
+        <div class="lab__body">
+          <div class="figure">
+            <p class="lab__label ident">encode(s)</p>
+            <div class="tokens" id="gettoni"></div>
+          </div>
+          <div class="readout" id="decodifica" aria-live="polite"></div>
+          <div class="figure">
+            <p class="lab__label"><span class="ident">chars</span> — i 65 caratteri, con il loro id</p>
+            <div class="tokens tokens--dense" id="vocabolario"></div>
+          </div>
+        </div>
+        <div class="lab__foot">
+          Lo spazio è disegnato come ␣ e l'a capo come ↵. Un carattere che non è
+          nel vocabolario, una lettera accentata per esempio, in Python farebbe
+          fallire <span class="mono">encode</span> con un KeyError: qui lo vedi
+          tratteggiato.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- GET_BATCH ---------- -->
+    <div class="block">
+      <h3 class="block__title">get_batch: una finestra è otto esempi</h3>
+      <p class="block__note">
+        L'addestramento pesca a caso <span class="mono">batch_size</span>
+        finestre lunghe <span class="mono">block_size</span>. Il bersaglio
+        <span class="mono">y</span> è la stessa finestra spostata di un
+        carattere: per ogni posizione, il carattere che viene dopo. Una
+        finestra di 8 contiene quindi 8 esempi, con contesti da 1 a 8 caratteri,
+        ed è per questo che il modello impara anche a partire da un contesto
+        cortissimo.
+      </p>
+
+      <pre class="listing" id="listato-batch"><code><span class="listing__line" data-riga="116">def get_batch(split):</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="123">    ix = torch.randint(len(data) - block_size, (batch_size,))</span
+><span class="listing__line" data-riga="124">    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])</span
+><span class="listing__line" data-riga="125">    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])</span></code></pre>
+      <p class="listing__source">train.py · L116–L125 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/train.py#L116-L125">GitHub</a></p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="batch-i"><span class="ident">i</span>, un elemento di <span class="ident">ix</span></label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="batch-i" min="0" max="100" value="0">
+            <output class="range__value" id="batch-i-out" for="batch-i">0</output>
+          </div>
+        </div>
+        <div class="lab__body">
+          <div class="figure">
+            <p class="lab__label ident">x = data[i : i+block_size]</p>
+            <div class="tokens" id="batch-x"></div>
+            <p class="lab__label ident">y = data[i+1 : i+1+block_size]</p>
+            <div class="tokens" id="batch-y"></div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col" class="table__num"><span class="ident">t</span></th>
+                  <th scope="col">Contesto <span class="ident">x[: t+1]</span></th>
+                  <th scope="col">Bersaglio <span class="ident">y[t]</span></th>
+                </tr>
+              </thead>
+              <tbody id="batch-coppie"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="lab__foot">
+          Il testo è l'inizio di Tiny Shakespeare. Nel codice vero
+          <span class="mono">ix</span> sono <span class="mono">batch_size</span>
+          interi estratti con <span class="mono">torch.randint</span>, e x e y
+          vengono impilati in due tensori <span class="mono">(B, T)</span>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- EMBEDDING ---------- -->
+    <div class="block" id="embedding">
+      <h3 class="block__title">tok_emb + pos_emb: il primo x</h3>
+      <p class="block__note">
+        <span class="mono">wte</span> è una tabella con una riga per carattere
+        del vocabolario, <span class="mono">wpe</span> una con una riga per
+        posizione. L'embedding di un token è solo una riga letta dalla tabella:
+        la somma delle due righe è il vettore che rappresenta "questo carattere
+        in questa posizione". Il dropout qui è spento, quindi
+        <span class="mono">drop</span> lascia passare tutto.
+      </p>
+
+      <pre class="listing" id="listato-forward"><code><span class="listing__line" data-riga="170">def forward(self, idx, targets=None):</span
+><span class="listing__line" data-riga="171">    device = idx.device</span
+><span class="listing__line" data-riga="172">    b, t = idx.size()</span
+><span class="listing__line" data-riga="173">    assert t &lt;= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"</span
+><span class="listing__line" data-riga="174">    pos = torch.arange(0, t, dtype=torch.long, device=device) <span class="listing__comment"># shape (t)</span></span
+><span class="listing__line" data-riga="175"> </span
+><span class="listing__line" data-riga="176">    <span class="listing__comment"># forward the GPT model itself</span></span
+><span class="listing__line" data-riga="177">    tok_emb = self.transformer.wte(idx) <span class="listing__comment"># token embeddings of shape (b, t, n_embd)</span></span
+><span class="listing__line" data-riga="178">    pos_emb = self.transformer.wpe(pos) <span class="listing__comment"># position embeddings of shape (t, n_embd)</span></span
+><span class="listing__line" data-riga="179">    x = self.transformer.drop(tok_emb + pos_emb)</span
+><span class="listing__line" data-riga="180">    for block in self.transformer.h:</span
+><span class="listing__line" data-riga="181">        x = block(x)</span
+><span class="listing__line" data-riga="182">    x = self.transformer.ln_f(x)</span
+><span class="listing__line" data-riga="183"> </span
+><span class="listing__line" data-riga="184">    if targets is not None:</span
+><span class="listing__line" data-riga="185">        <span class="listing__comment"># if we are given some desired targets also calculate the loss</span></span
+><span class="listing__line" data-riga="186">        logits = self.lm_head(x)</span
+><span class="listing__line" data-riga="187">        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)</span
+><span class="listing__line" data-riga="188">    else:</span
+><span class="listing__line" data-riga="189">        <span class="listing__comment"># inference-time mini-optimization: only forward the lm_head on the very last position</span></span
+><span class="listing__line" data-riga="190">        logits = self.lm_head(x[:, [-1], :]) <span class="listing__comment"># note: using list [-1] to preserve the time dim</span></span
+><span class="listing__line" data-riga="191">        loss = None</span
+><span class="listing__line" data-riga="192"> </span
+><span class="listing__line" data-riga="193">    return logits, loss</span></code></pre>
+      <p class="listing__source">model.py · L170–L193 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L170-L193">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq"><i>x</i><sub>t</sub> = <i>W</i><sub>te</sub>[ idx<sub>t</sub> ] + <i>W</i><sub>pe</sub>[ <i>t</i> ] ,&nbsp;&nbsp; <i>W</i><sub>te</sub> ∈ ℝ<sup>V×C</sup>, <i>W</i><sub>pe</sub> ∈ ℝ<sup>T×C</sup></span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-emb">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-emb" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Posizione</p>
+          <div class="chips" id="emb-pos" role="group" aria-label="Posizione"></div>
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="emb-tensori"></div>
+          <div class="tensors" id="emb-zoom"></div>
+        </div>
+        <div class="lab__foot">
+          In alto le due tabelle con accese le righe lette: in wte quelle dei
+          caratteri del prompt, con il filo su quella della posizione scelta; in
+          wpe le prime T. Poi la somma, e in fondo la posizione scelta con i suoi
+          numeri. Il colore di ogni matrice è scalato sul suo valore più grande
+          in modulo. Al passo zero i numeri sono piccoli (deviazione 0,02): è
+          l'inizializzazione di nanoGPT, non un errore.
+        </div>
+      </div>
+
+      <details class="panel">
+        <summary class="panel__head">
+          <span class="panel__title">Un embedding è un prodotto per una matrice</span>
+          <span class="panel__hint">Perché la tabella si può allenare come un qualunque strato lineare.</span>
+        </summary>
+        <div class="panel__body">
+          <p class="muted">
+            Leggere la riga <i>i</i> di <i>W</i><sub>te</sub> è la stessa cosa che
+            moltiplicare per <i>W</i><sub>te</sub> un vettore lungo V tutto a
+            zero tranne un 1 in posizione <i>i</i>, un "one-hot". nn.Embedding
+            salta la moltiplicazione, che sarebbe quasi tutta per zero, ma il
+            gradiente è quello del prodotto: arriva solo alle righe dei caratteri
+            che il batch contiene davvero.
+          </p>
+          <div class="formula">
+            <span class="eq">one_hot(idx<sub>t</sub>) · <i>W</i><sub>te</sub> = <i>W</i><sub>te</sub>[ idx<sub>t</sub> ]</span>
+          </div>
+          <div id="emb-onehot"></div>
+          <div class="readout" id="emb-onehot-lettura" aria-live="polite"></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE SECONDA
+       ====================================================================== -->
+  <section class="part" id="blocco">
+    <p class="part__num">Parte seconda</p>
+    <h2 class="part__title">Il Block</h2>
+    <p class="part__lead">
+      Tutto il lavoro del modello avviene qui, ripetuto n_layer volte. Un Block
+      fa due cose in fila: l'attenzione, dove ogni posizione raccoglie
+      informazione dalle precedenti, e l'MLP, dove ogni posizione la elabora
+      per conto suo. Karpathy lo riassume così: prima comunicare, poi calcolare.
+    </p>
+
+    <!-- ---------- SCHEMA DEL BLOCK ---------- -->
+    <div class="block" id="schema">
+      <h3 class="block__title">Il Block in una figura</h3>
+      <p class="block__note">
+        La linea verde è il flusso residuo: il tensore x, di forma (B, T, C),
+        che scende attraverso il Block. Due rami se ne staccano, fanno il loro
+        calcolo e ci tornano sommandosi nel +. Sotto ogni operazione c'è il
+        tensore che produce, calcolato sul prompt: la forma si legge dalle
+        proporzioni, una cella per numero. Ogni operazione porta al punto della
+        pagina che la spiega, già sul passo giusto.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-schema">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-schema" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Block</p>
+          <div class="chips" id="schema-strato" role="group" aria-label="Block"></div>
+        </div>
+        <div class="lab__body">
+          <ol class="stream" id="schema-block">
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_in"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.attn(self.ln_1(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_1"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_1</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_1"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_attn</code></span></a>
+                  <span class="stream__mini" data-tensore="qkv"></span>
+                  <span class="stream__shape">(B, T, 3C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="1"><span class="op__glyph" aria-hidden="true">÷3</span><span class="op__body"><code class="op__code">.split()</code></span></a>
+                  <span class="stream__mini" data-tensore="split"></span>
+                  <span class="stream__shape">3 × (B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="2"><span class="op__glyph" aria-hidden="true">⊞</span><span class="op__body"><code class="op__code">.view().transpose(1, 2)</code></span></a>
+                  <span class="stream__mini" data-tensore="teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">q @ k.T</code></span></a>
+                  <span class="stream__mini" data-tensore="att_raw"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="4"><span class="op__glyph" aria-hidden="true">×</span><span class="op__body"><code class="op__code">* 1/√hs</code></span></a>
+                  <span class="stream__mini" data-tensore="att_scala"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="5"><span class="op__glyph" aria-hidden="true">−∞</span><span class="op__body"><code class="op__code">.masked_fill()</code></span></a>
+                  <span class="stream__mini" data-tensore="att_maschera"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--riga" href="#attenzione" data-passo="6"><span class="op__glyph" aria-hidden="true">÷Σ</span><span class="op__body"><code class="op__code">F.softmax()</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#attenzione" data-passo="7"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">attn_dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="att"></span>
+                  <span class="stream__shape">(B, nh, T, T)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="8"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">att @ v</code></span></a>
+                  <span class="stream__mini" data-tensore="y_teste"></span>
+                  <span class="stream__shape">(B, nh, T, hs)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--forma" href="#attenzione" data-passo="9"><span class="op__glyph" aria-hidden="true">‖</span><span class="op__body"><code class="op__code">.transpose(1, 2).view()</code></span></a>
+                  <span class="stream__mini" data-tensore="y"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#attenzione" data-passo="10"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="attn_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#attenzione" data-passo="10" aria-label="Somma residua dell'attenzione: passo 10">+</a>x + attn(ln_1(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_mid"></span></li>
+            <li class="stream__branch">
+              <p class="stream__code">x = x + self.mlp(self.ln_2(x))</p>
+              <ol class="stream__ops">
+                <li class="stream__op">
+                  <a class="op op--riga" href="#layernorm" data-ln="ln_2"><span class="op__glyph" aria-hidden="true">μσ</span><span class="op__body"><code class="op__code">ln_2</code></span></a>
+                  <span class="stream__mini" data-tensore="ln_2"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="1"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_fc</code></span></a>
+                  <span class="stream__mini" data-tensore="h_fc"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="2"><span class="op__glyph" aria-hidden="true">Φ</span><span class="op__body"><code class="op__code">gelu</code></span></a>
+                  <span class="stream__mini" data-tensore="h_gelu"></span>
+                  <span class="stream__shape">(B, T, 4C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--prodotto" href="#mlp" data-mlp="3"><span class="op__glyph" aria-hidden="true">@</span><span class="op__body"><code class="op__code">c_proj</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+                <li class="stream__op">
+                  <a class="op op--elemento" href="#mlp" data-mlp="4"><span class="op__glyph" aria-hidden="true">p</span><span class="op__body"><code class="op__code">dropout</code></span></a>
+                  <span class="stream__mini" data-tensore="mlp_out"></span>
+                  <span class="stream__shape">(B, T, C)</span>
+                </li>
+              </ol>
+              <p class="stream__add"><a class="stream__plus" href="#mlp" data-mlp="4" aria-label="Somma residua dell'MLP">+</a>x + mlp(ln_2(x))</p>
+            </li>
+            <li class="stream__x"><span>x</span><span class="stream__shape">(B, T, C)</span><span class="stream__mini" data-tensore="x_out"></span></li>
+          </ol>
+        </div>
+        <div class="lab__foot">
+          Le miniature disegnano tutte le T righe, una cella per numero, ognuna
+          scalata sul suo valore più grande. I tensori con una dimensione per le
+          teste sono mazzi di nh carte. qkv è largo tre volte x, lo strato
+          nascosto dell'MLP quattro: il resto torna a C prima della somma,
+          perché sul flusso residuo si somma solo qualcosa della stessa forma.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- RESIDUO ---------- -->
+    <div class="block">
+      <h3 class="block__title">Il flusso residuo</h3>
+      <p class="block__note">
+        Le due righe di <span class="mono">Block.forward</span> non sostituiscono
+        <span class="mono">x</span>: gli aggiungono qualcosa. Il vettore di ogni
+        posizione è un nastro che attraversa tutto il modello, e ogni
+        sotto-blocco legge il nastro e ci scrive sopra una correzione.
+      </p>
+
+      <pre class="listing" id="listato-block"><code><span class="listing__line" data-riga="94">class Block(nn.Module):</span
+><span class="listing__line" data-riga="95"> </span
+><span class="listing__line" data-riga="96">    def __init__(self, config):</span
+><span class="listing__line" data-riga="97">        super().__init__()</span
+><span class="listing__line" data-riga="98">        self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)</span
+><span class="listing__line" data-riga="99">        self.attn = CausalSelfAttention(config)</span
+><span class="listing__line" data-riga="100">        self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)</span
+><span class="listing__line" data-riga="101">        self.mlp = MLP(config)</span
+><span class="listing__line" data-riga="102"> </span
+><span class="listing__line" data-riga="103">    def forward(self, x):</span
+><span class="listing__line" data-riga="104">        x = x + self.attn(self.ln_1(x))</span
+><span class="listing__line" data-riga="105">        x = x + self.mlp(self.ln_2(x))</span
+><span class="listing__line" data-riga="106">        return x</span></code></pre>
+      <p class="listing__source">model.py · L94–L106 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L94-L106">GitHub</a></p>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>La somma fa passare il gradiente</h4>
+          <p>La derivata di <i>x</i> + <i>f</i>(<i>x</i>) rispetto a <i>x</i>
+            contiene un 1. All'indietro il segnale arriva intatto al primo Block
+            anche quando <i>f</i> lo attenua: è quello che permette di impilare
+            decine di strati.</p>
+        </div>
+        <div class="callout callout--good">
+          <h4>Pre-norm</h4>
+          <p>La LayerNorm sta <em>dentro</em> il ramo, prima di attn e mlp, non
+            dopo la somma come nel Transformer del 2017. Il nastro non viene mai
+            normalizzato: per questo serve <span class="mono">ln_f</span> alla fine.</p>
+        </div>
+        <div class="callout">
+          <h4>c_proj nasce più piccolo</h4>
+          <p>I due strati che scrivono sul nastro, <span class="mono">attn.c_proj</span>
+            e <span class="mono">mlp.c_proj</span>, partono con deviazione
+            0,02 / √(2 · n_layer): sono 2 · n_layer somme, e senza la correzione
+            la varianza del nastro crescerebbe con la profondità.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- LAYERNORM ---------- -->
+    <div class="block" id="layernorm">
+      <h3 class="block__title">LayerNorm</h3>
+      <p class="block__note">
+        Riga per riga, cioè token per token: si toglie la media dei C numeri, si
+        divide per la loro deviazione standard, poi si moltiplica per
+        <span class="mono">weight</span> e si somma <span class="mono">bias</span>,
+        due vettori imparati. nanoGPT riscrive la classe solo per poter togliere
+        il bias, che PyTorch allora non permetteva di spegnere.
+      </p>
+
+      <pre class="listing" id="listato-ln"><code><span class="listing__line" data-riga="18">class LayerNorm(nn.Module):</span
+><span class="listing__line" data-riga="19">    """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """</span
+><span class="listing__line" data-riga="20"> </span
+><span class="listing__line" data-riga="21">    def __init__(self, ndim, bias):</span
+><span class="listing__line" data-riga="22">        super().__init__()</span
+><span class="listing__line" data-riga="23">        self.weight = nn.Parameter(torch.ones(ndim))</span
+><span class="listing__line" data-riga="24">        self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None</span
+><span class="listing__line" data-riga="25"> </span
+><span class="listing__line" data-riga="26">    def forward(self, input):</span
+><span class="listing__line" data-riga="27">        return F.layer_norm(input, self.weight.shape, self.weight, self.bias, 1e-5)</span></code></pre>
+      <p class="listing__source">model.py · L18–L27 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L18-L27">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq"><i>y</i> =
+          <span class="frac">
+            <span class="frac__num"><i>x</i> − <i>μ</i></span>
+            <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body"><i>σ</i>² + <i>ε</i></span></span></span>
+          </span>
+          ⊙ weight + bias ,&nbsp;&nbsp; <i>μ</i> = <span class="frac"><span class="frac__num">1</span><span class="frac__den">C</span></span> Σ<sub>c</sub> <i>x</i><sub>c</sub> ,&nbsp;&nbsp; <i>σ</i>² = <span class="frac"><span class="frac__num">1</span><span class="frac__den">C</span></span> Σ<sub>c</sub> (<i>x</i><sub>c</sub> − <i>μ</i>)² ,&nbsp;&nbsp; <i>ε</i> = 10<sup>−5</sup>
+        </span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-ln">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-ln" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Quale</p>
+          <div class="chips" id="ln-scelta" role="group" aria-label="Quale LayerNorm"></div>
+          <p class="lab__label">Posizione</p>
+          <div class="chips" id="ln-pos" role="group" aria-label="Posizione"></div>
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="ln-diagramma"></div>
+          <div class="split">
+            <div class="figure">
+              <svg id="ln-grafico" viewBox="0 0 420 300" role="img" aria-labelledby="ln-grafico-titolo">
+                <title id="ln-grafico-titolo">Il vettore di una posizione prima e dopo la LayerNorm</title>
+                <g id="ln-grafico-g"></g>
+              </svg>
+              <p class="figcap">Sopra l'ingresso, sotto l'uscita: i C = 16 numeri di una posizione, ognuno con la sua scala.</p>
+            </div>
+            <div class="figure">
+              <div class="stats" id="ln-letture" aria-live="polite"></div>
+              <div class="verdict" id="ln-verdetto" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+        <div class="lab__foot">
+          La varianza è quella "di popolazione", divisa per C e non per C − 1,
+          come in <span class="mono">F.layer_norm</span>. ε non è decorativo:
+          quando i numeri in ingresso sono piccoli, come al passo zero, pesa
+          sulla divisione e l'uscita esce con varianza visibilmente sotto 1.
+          Nel disegno μ e √(σ² + ε) sono colonne (T, 1), weight e bias vettori
+          (C,): le copie che il broadcast aggiunge per arrivare a (T, C) sono in
+          trasparenza, e il filo segue la posizione scelta.
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- ATTENZIONE ---------- -->
+    <div class="block" id="attenzione">
+      <h3 class="block__title">CausalSelfAttention, passo per passo</h3>
+      <p class="block__note">
+        Il cuore del Transformer. Ogni posizione produce tre vettori: una
+        domanda <span class="mono">q</span> ("che cosa sto cercando"), una
+        chiave <span class="mono">k</span> ("che cosa contengo") e un valore
+        <span class="mono">v</span> ("che cosa passo a chi mi sceglie"). Il
+        prodotto fra domande e chiavi dice quanto ogni posizione deve ascoltare
+        ciascuna delle precedenti, e la risposta è una media pesata dei valori.
+        Tutto il resto è contabilità delle forme.
+      </p>
+
+      <div class="formula">
+        <span class="eq">Attention(<i>Q</i>, <i>K</i>, <i>V</i>) = softmax(
+          <span class="frac">
+            <span class="frac__num"><i>Q K</i><sup>⊤</sup></span>
+            <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">hs</span></span></span>
+          </span>
+          + <i>M</i> ) <i>V</i> ,&nbsp;&nbsp; <i>M</i><sub>ij</sub> = 0 se <i>j</i> ≤ <i>i</i>, −∞ altrimenti
+        </span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-attn">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-attn" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Block</p>
+          <div class="chips" id="attn-strato" role="group" aria-label="Block"></div>
+          <p class="lab__label">Testa</p>
+          <div class="chips" id="attn-testa" role="group" aria-label="Testa"></div>
+        </div>
+        <div class="lab__bar">
+          <p class="lab__label">Passo</p>
+          <button class="btn btn--ghost" id="passo-prec" type="button">← indietro</button>
+          <div class="chips" id="attn-passi" role="group" aria-label="Passo">
+            <button class="chip" type="button" data-passo="1" aria-pressed="true">1</button>
+            <button class="chip" type="button" data-passo="2" aria-pressed="false">2</button>
+            <button class="chip" type="button" data-passo="3" aria-pressed="false">3</button>
+            <button class="chip" type="button" data-passo="4" aria-pressed="false">4</button>
+            <button class="chip" type="button" data-passo="5" aria-pressed="false">5</button>
+            <button class="chip" type="button" data-passo="6" aria-pressed="false">6</button>
+            <button class="chip" type="button" data-passo="7" aria-pressed="false">7</button>
+            <button class="chip" type="button" data-passo="8" aria-pressed="false">8</button>
+            <button class="chip" type="button" data-passo="9" aria-pressed="false">9</button>
+            <button class="chip" type="button" data-passo="10" aria-pressed="false">10</button>
+          </div>
+          <button class="btn btn--ghost" id="passo-succ" type="button">avanti →</button>
+        </div>
+
+        <div class="lab__body">
+          <div class="split split--code">
+            <div class="figure">
+              <pre class="listing" id="listato-attn"><code><span class="listing__line" data-riga="52">def forward(self, x):</span
+><span class="listing__line" data-riga="53">    B, T, C = x.size() <span class="listing__comment"># batch size, sequence length, embedding dimensionality (n_embd)</span></span
+><span class="listing__line" data-riga="54"> </span
+><span class="listing__line" data-riga="55">    <span class="listing__comment"># calculate query, key, values for all heads in batch and move head forward to be the batch dim</span></span
+><span class="listing__line" data-riga="56">    q, k, v  = self.c_attn(x).split(self.n_embd, dim=2)</span
+><span class="listing__line" data-riga="57">    k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) <span class="listing__comment"># (B, nh, T, hs)</span></span
+><span class="listing__line" data-riga="58">    q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) <span class="listing__comment"># (B, nh, T, hs)</span></span
+><span class="listing__line" data-riga="59">    v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) <span class="listing__comment"># (B, nh, T, hs)</span></span
+><span class="listing__line" data-riga="60"> </span
+><span class="listing__line" data-riga="61">    <span class="listing__comment"># causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -&gt; (B, nh, T, T)</span></span
+><span class="listing__line" data-riga="62">    if self.flash:</span
+><span class="listing__line" data-riga="63">        <span class="listing__comment"># efficient attention using Flash Attention CUDA kernels</span></span
+><span class="listing__line" data-riga="64">        y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout if self.training else 0, is_causal=True)</span
+><span class="listing__line" data-riga="65">    else:</span
+><span class="listing__line" data-riga="66">        <span class="listing__comment"># manual implementation of attention</span></span
+><span class="listing__line" data-riga="67">        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))</span
+><span class="listing__line" data-riga="68">        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))</span
+><span class="listing__line" data-riga="69">        att = F.softmax(att, dim=-1)</span
+><span class="listing__line" data-riga="70">        att = self.attn_dropout(att)</span
+><span class="listing__line" data-riga="71">        y = att @ v <span class="listing__comment"># (B, nh, T, T) x (B, nh, T, hs) -&gt; (B, nh, T, hs)</span></span
+><span class="listing__line" data-riga="72">    y = y.transpose(1, 2).contiguous().view(B, T, C) <span class="listing__comment"># re-assemble all head outputs side by side</span></span
+><span class="listing__line" data-riga="73"> </span
+><span class="listing__line" data-riga="74">    <span class="listing__comment"># output projection</span></span
+><span class="listing__line" data-riga="75">    y = self.resid_dropout(self.c_proj(y))</span
+><span class="listing__line" data-riga="76">    return y</span></code></pre>
+              <p class="listing__source">model.py · L52–L76 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L52-L76">GitHub</a></p>
+            </div>
+
+            <div class="figure" id="attn-passi-testo" aria-live="polite">
+              <div class="step" data-passo="1" data-righe="56">
+                <p class="lab__label">Passo 1 di 10</p>
+                <h4 class="step__title">c_attn: tre proiezioni in una</h4>
+                <div class="formula"><span class="eq">[ <i>q</i> | <i>k</i> | <i>v</i> ] = <i>x</i> <i>W</i><sup>⊤</sup> + <i>b</i> ,&nbsp;&nbsp; <i>W</i> ∈ ℝ<sup>3C×C</sup></span></div>
+                <p>
+                  Un solo strato lineare porta ogni riga di x da C = 16 a 3C = 48
+                  numeri, e <span class="mono">split(n_embd, dim=2)</span> li taglia in
+                  tre fette da 16: q, k e v. È un'ottimizzazione: tre matrici separate
+                  darebbero lo stesso risultato con tre moltiplicazioni invece di una.
+                  Il peso è salvato (3C, C), come ogni nn.Linear, e la trasposta sta
+                  nella formula. Clicca una cella di qkv per vedere da quale riga di x
+                  e da quale colonna dei pesi viene.
+                </p>
+              </div>
+              <div class="step" data-passo="2" data-righe="57-59">
+                <p class="lab__label">Passo 2 di 10</p>
+                <h4 class="step__title">view e transpose: le teste</h4>
+                <div class="formula"><span class="eq">(B, T, C) → view → (B, T, nh, hs) → transpose(1, 2) → (B, nh, T, hs)</span></div>
+                <p>
+                  Nessun numero cambia: le C colonne di q vengono lette come nh = 2
+                  gruppi di hs = 8, e ogni gruppo diventa una testa a sé. Dopo la
+                  transpose la dimensione delle teste sta accanto a quella del batch,
+                  e da qui in poi ogni testa lavora come se fosse un'attenzione
+                  indipendente, in parallelo alle altre. Sotto, view taglia le
+                  colonne in nh gruppi e transpose li mette uno dietro l'altro: clicca
+                  la carta dietro per portare davanti l'altra testa.
+                </p>
+              </div>
+              <div class="step" data-passo="3" data-righe="67">
+                <p class="lab__label">Passo 3 di 10</p>
+                <h4 class="step__title">q @ kᵀ: quanto si somigliano domanda e chiave</h4>
+                <div class="formula"><span class="eq">att<sub>ij</sub> = <i>q</i><sub>i</sub> · <i>k</i><sub>j</sub> = Σ<sub>d</sub> <i>q</i><sub>id</sub> <i>k</i><sub>jd</sub></span></div>
+                <p>
+                  Ogni domanda contro ogni chiave: una matrice T × T per testa. La
+                  riga <i>i</i> dice quanto la posizione <i>i</i> è interessata a
+                  ciascuna posizione <i>j</i>. Sotto, prima il prodotto di tutte le
+                  teste insieme, poi una testa da vicino: k trasposta, e il prodotto
+                  riga per colonna. Clicca una cella per vedere il suo prodotto
+                  scalare scritto per intero.
+                </p>
+              </div>
+              <div class="step" data-passo="4" data-righe="67">
+                <p class="lab__label">Passo 4 di 10</p>
+                <h4 class="step__title">La scala 1/√hs</h4>
+                <div class="formula"><span class="eq">att ← att ·
+                  <span class="frac"><span class="frac__num">1</span><span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body">hs</span></span></span></span> ,&nbsp;&nbsp; <span class="mono">k.size(-1)</span> = hs = 8</span></div>
+                <p>
+                  Un prodotto scalare di hs termini casuali ha deviazione standard
+                  √hs: più larghe le teste, più grandi i punteggi, e una softmax di
+                  numeri grandi diventa quasi un one-hot che guarda una posizione
+                  sola e ha gradiente quasi nullo. Dividere per √hs riporta i
+                  punteggi a varianza 1, qualunque sia hs. Il riquadro sotto il
+                  laboratorio lo fa vedere.
+                </p>
+              </div>
+              <div class="step" data-passo="5" data-righe="68">
+                <p class="lab__label">Passo 5 di 10</p>
+                <h4 class="step__title">La maschera causale</h4>
+                <div class="formula"><span class="eq">att<sub>ij</sub> ← −∞ &nbsp;se&nbsp; bias<sub>ij</sub> = 0 , &nbsp;cioè se <i>j</i> &gt; <i>i</i></span></div>
+                <p>
+                  <span class="mono">self.bias</span> non è un bias: è la matrice
+                  triangolare <span class="mono">torch.tril(torch.ones(T, T))</span>,
+                  registrata come buffer. Tutto quello che sta sopra la diagonale —
+                  le posizioni future — diventa −∞. Senza la maschera, durante
+                  l'addestramento il modello leggerebbe la risposta: il carattere
+                  da prevedere è proprio lì, una colonna più a destra.
+                </p>
+              </div>
+              <div class="step" data-passo="6" data-righe="69">
+                <p class="lab__label">Passo 6 di 10</p>
+                <h4 class="step__title">softmax, riga per riga</h4>
+                <div class="formula"><span class="eq">att<sub>ij</sub> ←
+                  <span class="frac"><span class="frac__num"><i>e</i><sup>att<sub>ij</sub></sup></span><span class="frac__den">Σ<sub>k ≤ i</sub> <i>e</i><sup>att<sub>ik</sub></sup></span></span> ,&nbsp;&nbsp; <i>e</i><sup>−∞</sup> = 0</span></div>
+                <p>
+                  Ogni riga diventa una distribuzione di probabilità: numeri positivi
+                  che sommano a 1, la colonna a destra lo verifica. Le celle a −∞
+                  escono esattamente a zero. Al passo zero le righe sono quasi
+                  uniformi — 1, poi ½ ½, poi ⅓ ⅓ ⅓ — perché domande e chiavi sono
+                  ancora rumore piccolo: un modello che non sa niente ascolta tutti
+                  allo stesso modo. Sotto, i due tempi della softmax: e elevato a ogni
+                  cella, poi ogni riga divisa per la sua somma.
+                </p>
+              </div>
+              <div class="step" data-passo="7" data-righe="70">
+                <p class="lab__label">Passo 7 di 10</p>
+                <h4 class="step__title">attn_dropout</h4>
+                <div class="formula"><span class="eq">att ← att ⊙ <i>m</i> / (1 − <i>p</i>) ,&nbsp;&nbsp; <i>m</i><sub>ij</sub> ∼ Bernoulli(1 − <i>p</i>)</span></div>
+                <p>
+                  In addestramento il dropout azzera a caso una frazione
+                  <i>p</i> dei pesi di attenzione e moltiplica gli altri per
+                  1/(1 − <i>p</i>), così la media resta quella. Qui
+                  <span class="mono">dropout = 0.0</span> e il passo non fa niente,
+                  come in valutazione. Scegli <i>p</i> = 0,2 per vedere che cosa
+                  farebbe in addestramento: le righe smettono di sommare a 1.
+                </p>
+                <div class="chips" id="dropout-chip" role="group" aria-label="Dropout p">
+                  <button class="chip" type="button" data-p="0" aria-pressed="true">p = 0</button>
+                  <button class="chip" type="button" data-p="0.2" aria-pressed="false">p = 0,2</button>
+                </div>
+              </div>
+              <div class="step" data-passo="8" data-righe="71">
+                <p class="lab__label">Passo 8 di 10</p>
+                <h4 class="step__title">att @ v: la media pesata dei valori</h4>
+                <div class="formula"><span class="eq"><i>y</i><sub>i</sub> = Σ<sub><i>j</i> ≤ <i>i</i></sub> att<sub>ij</sub> <i>v</i><sub>j</sub></span></div>
+                <p>
+                  Ogni riga di att è una ricetta: quanto prendere di ciascun
+                  valore. L'uscita della testa per la posizione <i>i</i> è la
+                  miscela dei vettori <i>v</i> delle posizioni da 0 a <i>i</i>. È
+                  l'unico punto del modello in cui l'informazione passa da una
+                  posizione all'altra. Clicca una cella di y per vedere la miscela.
+                </p>
+              </div>
+              <div class="step" data-passo="9" data-righe="72">
+                <p class="lab__label">Passo 9 di 10</p>
+                <h4 class="step__title">Le teste tornano fianco a fianco</h4>
+                <div class="formula"><span class="eq"><i>y</i> = [ <i>y</i><sup>(0)</sup> | <i>y</i><sup>(1)</sup> ] ,&nbsp;&nbsp; (B, nh, T, hs) → (B, T, C)</span></div>
+                <p>
+                  Il contrario del passo 2: transpose riporta le teste accanto alle
+                  posizioni e view incolla le nh uscite da hs numeri in un solo
+                  vettore da C. <span class="mono">contiguous()</span> serve perché
+                  dopo la transpose i numeri non sono più in fila in memoria, e view
+                  pretende che lo siano.
+                </p>
+              </div>
+              <div class="step" data-passo="10" data-righe="75">
+                <p class="lab__label">Passo 10 di 10</p>
+                <h4 class="step__title">c_proj, poi la somma residua</h4>
+                <div class="formula"><span class="eq">out = <i>y</i> <i>W</i><sub>proj</sub><sup>⊤</sup> + <i>b</i> ,&nbsp;&nbsp; <i>x</i> ← <i>x</i> + out</span></div>
+                <p>
+                  Le teste hanno lavorato separate; c_proj, una matrice C × C,
+                  mescola le loro uscite e decide che cosa scrivere sul nastro.
+                  Il risultato non sostituisce x: gli si somma, nella prima riga di
+                  <span class="mono">Block.forward</span>. Il resid_dropout, come
+                  l'altro, qui è spento.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow" id="attn-tensori"></div>
+          <div class="readout" id="attn-dettaglio" aria-live="polite"></div>
+        </div>
+
+        <div class="lab__foot">
+          Sono i tensori di una testa del Block scelto, per il prompt scritto qui
+          sopra (B = 1, T = 8). Righe e colonne di att portano il carattere della
+          loro posizione: la riga è chi chiede, la colonna chi risponde. Nei
+          prodotti il primo fattore sta in basso a sinistra e il secondo in alto:
+          la riga dell'uno e la colonna dell'altro si incontrano nella cella del
+          risultato. Le righe
+          da 61 a 64 sono il ramo flash, che PyTorch 2 usa davvero: vedi il
+          riquadro qui sotto.
+        </div>
+      </div>
+
+      <details class="panel">
+        <summary class="panel__head">
+          <span class="panel__title">Perché proprio √hs</span>
+          <span class="panel__hint">Punteggi e softmax con e senza la scala, al crescere della larghezza delle teste.</span>
+        </summary>
+        <div class="panel__body">
+          <div class="lab">
+            <div class="lab__bar">
+              <label class="lab__label ident" for="hs">hs</label>
+              <div class="range range--inline">
+                <input class="range__slider" type="range" id="hs" min="0" max="8" value="3">
+                <output class="range__value" id="hs-out" for="hs">8</output>
+              </div>
+            </div>
+            <div class="lab__body">
+              <div class="split">
+                <div class="figure">
+                  <svg id="scala-grafico" viewBox="0 0 420 220" role="img" aria-labelledby="scala-grafico-titolo">
+                    <title id="scala-grafico-titolo">Una riga di softmax senza e con la divisione per la radice di hs</title>
+                    <g id="scala-grafico-g"></g>
+                  </svg>
+                  <p class="figcap">Otto punteggi q·k di vettori casuali a varianza 1. A sinistra la softmax dei punteggi grezzi, a destra quella dei punteggi divisi per √hs.</p>
+                </div>
+                <div class="figure">
+                  <div class="stats" id="scala-letture" aria-live="polite"></div>
+                  <div class="verdict" id="scala-verdetto" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+            <div class="lab__foot">
+              La deviazione standard è misurata su 2.000 coppie di vettori estratte
+              da un generatore con seme.
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary class="panel__head">
+          <span class="panel__title">Il ramo flash</span>
+          <span class="panel__hint">Righe 62–64: stessa matematica, un'altra strategia di memoria.</span>
+        </summary>
+        <div class="panel__body">
+          <p class="muted">
+            Con PyTorch 2 nanoGPT chiama <span class="mono">scaled_dot_product_attention(q, k, v, is_causal=True)</span>,
+            che calcola esattamente i passi 3–8 in un solo kernel. La differenza
+            è che non costruisce mai la matrice att intera: la percorre a blocchi,
+            tenendo una softmax "in corsa". La memoria passa da T² a T per testa,
+            ed è il motivo per cui il ramo manuale qui sopra è quello che si
+            legge, ma quasi mai quello che si esegue.
+          </p>
+        </div>
+      </details>
+    </div>
+
+    <!-- ---------- TUTTE LE TESTE ---------- -->
+    <div class="block">
+      <h3 class="block__title">Tutte le teste insieme</h3>
+      <p class="block__note">
+        La matrice att di ogni testa di ogni Block, per lo stesso prompt. Al
+        passo zero sono tutte uguali, la scala di grigi dell'ignoranza. Dopo
+        l'addestramento ogni testa si specializza: una guarda il carattere
+        appena prima, un'altra l'inizio della parola, un'altra ancora si
+        distribuisce — non perché qualcuno gliel'abbia detto, ma perché serviva
+        a prevedere il carattere dopo.
+      </p>
+      <div class="tensors" id="teste-tutte"></div>
+    </div>
+
+    <!-- ---------- MLP ---------- -->
+    <div class="block" id="mlp">
+      <h3 class="block__title">MLP: allargare, piegare, restringere</h3>
+      <p class="block__note">
+        Il secondo sotto-blocco non guarda le altre posizioni: lavora su ogni
+        vettore da solo. Lo porta da C a 4·C = 64 dimensioni, ci applica una
+        non linearità, e lo riporta a C. È qui che sta quasi metà dei
+        parametri di ogni Block.
+      </p>
+
+      <pre class="listing" id="listato-mlp"><code><span class="listing__line" data-riga="78">class MLP(nn.Module):</span
+><span class="listing__line" data-riga="79"> </span
+><span class="listing__line" data-riga="80">    def __init__(self, config):</span
+><span class="listing__line" data-riga="81">        super().__init__()</span
+><span class="listing__line" data-riga="82">        self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias)</span
+><span class="listing__line" data-riga="83">        self.gelu    = nn.GELU()</span
+><span class="listing__line" data-riga="84">        self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd, bias=config.bias)</span
+><span class="listing__line" data-riga="85">        self.dropout = nn.Dropout(config.dropout)</span
+><span class="listing__line" data-riga="86"> </span
+><span class="listing__line" data-riga="87">    def forward(self, x):</span
+><span class="listing__line" data-riga="88">        x = self.c_fc(x)</span
+><span class="listing__line" data-riga="89">        x = self.gelu(x)</span
+><span class="listing__line" data-riga="90">        x = self.c_proj(x)</span
+><span class="listing__line" data-riga="91">        x = self.dropout(x)</span
+><span class="listing__line" data-riga="92">        return x</span></code></pre>
+      <p class="listing__source">model.py · L78–L92 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L78-L92">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq">mlp(<i>x</i>) = GELU(<i>x</i> <i>W</i><sub>fc</sub><sup>⊤</sup> + <i>b</i><sub>fc</sub>) <i>W</i><sub>proj</sub><sup>⊤</sup> + <i>b</i><sub>proj</sub> ,&nbsp;&nbsp; GELU(<i>x</i>) = <i>x</i> · Φ(<i>x</i>) = ½ <i>x</i> (1 + erf(<i>x</i> / √2))</span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-mlp">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-mlp" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Block</p>
+          <div class="chips" id="mlp-strato" role="group" aria-label="Block"></div>
+          <p class="lab__label">Posizione</p>
+          <div class="chips" id="mlp-pos" role="group" aria-label="Posizione"></div>
+        </div>
+        <div class="lab__bar">
+          <p class="lab__label">Passo</p>
+          <div class="chips" id="mlp-passi" role="group" aria-label="Passo">
+            <button class="chip" type="button" data-passo="1" aria-pressed="true">1</button>
+            <button class="chip" type="button" data-passo="2" aria-pressed="false">2</button>
+            <button class="chip" type="button" data-passo="3" aria-pressed="false">3</button>
+            <button class="chip" type="button" data-passo="4" aria-pressed="false">4</button>
+          </div>
+        </div>
+        <div class="lab__body">
+          <div id="mlp-passi-testo" aria-live="polite">
+            <div class="step" data-passo="1" data-righe="88">
+              <p class="lab__label">Passo 1 di 4</p>
+              <h4 class="step__title">c_fc: da C a 4C</h4>
+              <p>
+                Ogni riga passa da 16 a 64 numeri: 64 prodotti scalari con le
+                righe di c_fc.weight, più il bias. Clicca una cella del risultato:
+                la sua riga diventa la posizione scelta, anche nel grafico qui
+                sotto.
+              </p>
+            </div>
+            <div class="step" data-passo="2" data-righe="89">
+              <p class="lab__label">Passo 2 di 4</p>
+              <h4 class="step__title">gelu: cella per cella</h4>
+              <p>
+                La GELU piega ogni numero da solo, x · Φ(x). Nessuna cella guarda
+                le altre, né quelle della stessa riga né quelle delle altre
+                posizioni.
+              </p>
+            </div>
+            <div class="step" data-passo="3" data-righe="90">
+              <p class="lab__label">Passo 3 di 4</p>
+              <h4 class="step__title">c_proj: da 4C a C</h4>
+              <p>
+                Il ritorno a C = 16: ogni uscita è un prodotto scalare lungo 64.
+                Come attn.c_proj, nasce con deviazione 0,02 / √(2 · n_layer),
+                perché scrive sul flusso residuo.
+              </p>
+            </div>
+            <div class="step" data-passo="4" data-righe="91">
+              <p class="lab__label">Passo 4 di 4</p>
+              <h4 class="step__title">dropout, poi la somma</h4>
+              <p>
+                Il dropout qui è spento. Il risultato si somma al flusso residuo
+                nella seconda riga di <span class="mono">Block.forward</span>, la
+                105: x = x + self.mlp(self.ln_2(x)).
+              </p>
+            </div>
+          </div>
+          <div class="flow" id="mlp-tensori"></div>
+          <div class="readout" id="mlp-dettaglio" aria-live="polite"></div>
+          <div class="figure">
+            <svg id="mlp-grafico" viewBox="0 0 640 220" role="img" aria-labelledby="mlp-grafico-titolo">
+              <title id="mlp-grafico-titolo">Le 64 attivazioni nascoste di una posizione, prima e dopo la GELU</title>
+              <g id="mlp-grafico-g"></g>
+            </svg>
+            <div class="legend">
+              <span><span class="swatch swatch--3"></span> c_fc(x), prima della GELU</span>
+              <span><span class="swatch swatch--1"></span> dopo la GELU, positivo</span>
+              <span><span class="swatch swatch--2"></span> dopo la GELU, negativo</span>
+            </div>
+          </div>
+          <div class="stats" id="mlp-letture" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          I 64 numeri nascosti della posizione scelta. La GELU lascia passare
+          quasi intatti i positivi e schiaccia i negativi verso zero, ma non
+          esattamente a zero: un piccolo avvallamento sotto lo zero resta, e il
+          gradiente non si spegne mai del tutto. I prodotti da 64 righe o colonne
+          sono disegnati a celle piccole, senza etichette: la posizione scelta è
+          la riga accesa.
+        </div>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label ident" for="gelu-x">x</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="gelu-x" min="-400" max="400" value="-75">
+            <output class="range__value" id="gelu-x-out" for="gelu-x">−0,75</output>
+          </div>
+        </div>
+        <div class="lab__body">
+          <div class="split">
+            <div class="figure">
+              <svg id="gelu-grafico" viewBox="0 0 420 260" role="img" aria-labelledby="gelu-grafico-titolo">
+                <title id="gelu-grafico-titolo">GELU, ReLU e l'approssimazione con tanh</title>
+                <g id="gelu-grafico-g"></g>
+              </svg>
+              <div class="legend">
+                <span><span class="swatch swatch--1"></span> GELU, nn.GELU()</span>
+                <span><span class="swatch swatch--2"></span> ReLU</span>
+                <span><span class="swatch swatch--3"></span> GELU con tanh, GPT-2</span>
+              </div>
+            </div>
+            <div class="figure">
+              <div class="stats" id="gelu-letture" aria-live="polite"></div>
+              <div class="verdict">
+                <b>nanoGPT usa la GELU esatta.</b> Il GPT-2 originale usava
+                l'approssimazione con tanh, nata quando erf era cara da calcolare.
+                Le due curve differiscono alla terza o quarta cifra decimale:
+                sul grafico sono sovrapposte.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="lab__foot">
+          Φ è la funzione di ripartizione della normale standard: la GELU pesa
+          ogni ingresso con la probabilità che una normale stia sotto di lui.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE TERZA
+       ====================================================================== -->
+  <section class="part" id="uscita">
+    <p class="part__num">Parte terza</p>
+    <h2 class="part__title">Dall'ultimo vettore alla loss</h2>
+    <p class="part__lead">
+      Dopo l'ultimo Block, ogni posizione ha un vettore di C numeri. Restano
+      due passi per trasformarlo in una previsione — e uno per misurare quanto
+      era sbagliata.
+    </p>
+
+    <div class="block">
+      <h3 class="block__title">ln_f, lm_head e i pesi condivisi</h3>
+      <p class="block__note">
+        <span class="mono">ln_f</span> normalizza il nastro, che dentro i Block
+        non viene mai normalizzato. Poi <span class="mono">lm_head</span>, un
+        Linear da C a V senza bias, dà a ogni carattere un punteggio: i logits.
+        La riga 138 è il dettaglio da non perdere: il peso di lm_head
+        <em>è</em> wte. Non una copia: lo stesso tensore. La tabella che
+        all'ingresso trasforma un carattere in vettore, all'uscita misura quanto
+        un vettore somiglia a ogni carattere.
+      </p>
+
+      <pre class="listing" id="listato-init"><code><span class="listing__line" data-riga="138">    self.transformer.wte.weight = self.lm_head.weight <span class="listing__comment"># https://paperswithcode.com/method/weight-tying</span></span
+><span class="listing__line" data-riga="139"> </span
+><span class="listing__line" data-riga="140">    <span class="listing__comment"># init all weights</span></span
+><span class="listing__line" data-riga="141">    self.apply(self._init_weights)</span
+><span class="listing__line" data-riga="142">    <span class="listing__comment"># apply special scaled init to the residual projections, per GPT-2 paper</span></span
+><span class="listing__line" data-riga="143">    for pn, p in self.named_parameters():</span
+><span class="listing__line" data-riga="144">        if pn.endswith('c_proj.weight'):</span
+><span class="listing__line" data-riga="145">            torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="162">def _init_weights(self, module):</span
+><span class="listing__line" data-riga="163">    if isinstance(module, nn.Linear):</span
+><span class="listing__line" data-riga="164">        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)</span
+><span class="listing__line" data-riga="165">        if module.bias is not None:</span
+><span class="listing__line" data-riga="166">            torch.nn.init.zeros_(module.bias)</span
+><span class="listing__line" data-riga="167">    elif isinstance(module, nn.Embedding):</span
+><span class="listing__line" data-riga="168">        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)</span></code></pre>
+      <p class="listing__source">model.py · L138–L168 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L138-L168">GitHub</a></p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-testa">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-testa" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+          <p class="lab__label">Posizione</p>
+          <div class="chips" id="testa-pos" role="group" aria-label="Posizione"></div>
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="testa-tensori"></div>
+          <div class="readout" id="testa-dettaglio" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          Il secondo fattore è wte trasposta: le sue 65 colonne sono gli
+          embedding dei caratteri, gli stessi letti all'ingresso. La cella
+          accesa è il logit del carattere giusto per la posizione scelta, o del
+          preferito del modello sull'ultima; clicca un'altra colonna per
+          confrontarla con un altro carattere.
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>Quasi un quarto dei parametri in meno</h4>
+          <p>In gpt2, wte è 50.257 × 768: 38,6 milioni di numeri. Senza la
+            condivisione lm_head ne aggiungerebbe altrettanti, e il modello
+            passerebbe da 124 a 163 milioni. Qui sono 1.040 su 7.760.</p>
+        </div>
+        <div class="callout">
+          <h4>In inferenza, solo l'ultima posizione</h4>
+          <p>Senza targets, nanoGPT applica lm_head solo a
+            <span class="mono">x[:, [-1], :]</span>: per scegliere il prossimo
+            carattere serve solo l'ultima previsione. La lista
+            <span class="mono">[-1]</span> invece di <span class="mono">-1</span>
+            tiene la dimensione T, che resta lunga 1.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="block" id="loss">
+      <h3 class="block__title">logits e cross_entropy</h3>
+      <p class="block__note">
+        Ogni riga di logits passa per una softmax e diventa una distribuzione
+        sui 65 caratteri. La loss guarda solo la probabilità data al carattere
+        giusto, ne prende il logaritmo cambiato di segno, e fa la media sulle
+        posizioni. Un modello che tira a indovinare dà 1/65 a tutto: −ln(1/65) =
+        4,17 è la loss da cui parte ogni addestramento.
+      </p>
+
+      <div class="formula">
+        <span class="eq">loss = − <span class="frac"><span class="frac__num">1</span><span class="frac__den"><i>N</i></span></span> Σ<sub><i>n</i></sub> log softmax(logits<sub><i>n</i></sub>)[ targets<sub><i>n</i></sub> ] ,&nbsp;&nbsp; targets<sub><i>n</i></sub> = −1 → ignorato</span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label" for="prompt-loss">Prompt</label>
+          <input class="field__input field__input--compact field__input--sm" type="text" id="prompt-loss" maxlength="8" value="First Ci" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="lab__body">
+          <div class="flow" id="loss-logits"></div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col" class="table__num"><span class="ident">t</span></th>
+                  <th scope="col"><span class="ident">idx[t]</span></th>
+                  <th scope="col"><span class="ident">targets[t]</span></th>
+                  <th scope="col" class="table__num"><span class="ident">p(target)</span></th>
+                  <th scope="col" class="table__num"><span class="ident">−log p</span></th>
+                  <th scope="col">I tre più probabili</th>
+                </tr>
+              </thead>
+              <tbody id="loss-tabella"></tbody>
+            </table>
+          </div>
+          <div class="stats" id="loss-letture" aria-live="polite"></div>
+          <div class="verdict" id="loss-verdetto" aria-live="polite"></div>
+        </div>
+        <div class="lab__foot">
+          I bersagli sono il prompt spostato di un carattere. L'ultima posizione
+          non ha un carattere dopo, quindi il suo target è −1: è esattamente il
+          caso per cui esiste <span class="mono">ignore_index=-1</span>. La sua
+          riga è la previsione del prossimo carattere, quella che usa
+          <span class="mono">generate()</span>. Nelle matrici il filo marca il
+          carattere giusto di ogni riga. Il disegno fa la softmax e il −log in
+          due tempi; <span class="mono">F.cross_entropy</span> usa log_softmax in
+          un colpo solo, più stabile, ma il numero è lo stesso.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE QUARTA
+       ====================================================================== -->
+  <section class="part" id="addestramento">
+    <p class="part__num">Parte quarta</p>
+    <h2 class="part__title">Addestramento</h2>
+    <p class="part__lead">
+      Addestrare vuol dire ripetere migliaia di volte la stessa cosa: un batch,
+      la loss, il gradiente di ogni peso, un piccolo passo nella direzione che
+      abbassa la loss. In train.py il cuore sono una ventina di righe; il resto
+      è contabilità per le GPU.
+    </p>
+
+    <div class="block">
+      <h3 class="block__title">Il ciclo</h3>
+      <p class="block__note">
+        Le righe che contano davvero, con quelle per la distribuzione su più GPU
+        tolte. <span class="mono">loss.backward()</span> riempie il
+        <span class="mono">.grad</span> di ogni parametro; in questa pagina non
+        c'è PyTorch a farlo, e il passo all'indietro è scritto a mano in
+        nanogpt.js — controllato contro le differenze finite, peso per peso.
+      </p>
+
+      <pre class="listing" id="listato-loop"><code><span class="listing__line" data-riga="257"><span class="listing__comment"># determine and set the learning rate for this iteration</span></span
+><span class="listing__line" data-riga="258">lr = get_lr(iter_num) if decay_lr else learning_rate</span
+><span class="listing__line" data-riga="259">for param_group in optimizer.param_groups:</span
+><span class="listing__line" data-riga="260">    param_group['lr'] = lr</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="292">for micro_step in range(gradient_accumulation_steps):</span
+><span class="listing__line listing__line--gap">    ⋮</span
+><span class="listing__line" data-riga="299">    with ctx:</span
+><span class="listing__line" data-riga="300">        logits, loss = model(X, Y)</span
+><span class="listing__line" data-riga="301">        loss = loss / gradient_accumulation_steps <span class="listing__comment"># scale the loss to account for gradient accumulation</span></span
+><span class="listing__line" data-riga="302">    <span class="listing__comment"># immediately async prefetch next batch while model is doing the forward pass on the GPU</span></span
+><span class="listing__line" data-riga="303">    X, Y = get_batch('train')</span
+><span class="listing__line" data-riga="304">    <span class="listing__comment"># backward pass, with gradient scaling if training in fp16</span></span
+><span class="listing__line" data-riga="305">    scaler.scale(loss).backward()</span
+><span class="listing__line" data-riga="306"><span class="listing__comment"># clip the gradient</span></span
+><span class="listing__line" data-riga="307">if grad_clip != 0.0:</span
+><span class="listing__line" data-riga="308">    scaler.unscale_(optimizer)</span
+><span class="listing__line" data-riga="309">    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)</span
+><span class="listing__line" data-riga="310"><span class="listing__comment"># step the optimizer and scaler if training in fp16</span></span
+><span class="listing__line" data-riga="311">scaler.step(optimizer)</span
+><span class="listing__line" data-riga="312">scaler.update()</span
+><span class="listing__line" data-riga="313"><span class="listing__comment"># flush the gradients as soon as we can, no need for this memory anymore</span></span
+><span class="listing__line" data-riga="314">optimizer.zero_grad(set_to_none=True)</span></code></pre>
+      <p class="listing__source">train.py · L257–L314 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/train.py#L257-L314">GitHub</a></p>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">get_lr: riscaldamento e coseno</h3>
+      <p class="block__note">
+        Il learning rate non è costante. Sale in linea retta per
+        <span class="mono">warmup_iters</span> passi, perché all'inizio i
+        gradienti sono grandi e le stime di Adam ancora vuote; poi scende lungo
+        mezzo coseno fino a <span class="mono">min_lr</span>, che si raggiunge a
+        <span class="mono">lr_decay_iters</span> e da lì resta fermo.
+      </p>
+
+      <pre class="listing" id="listato-lr"><code><span class="listing__line" data-riga="231">def get_lr(it):</span
+><span class="listing__line" data-riga="232">    <span class="listing__comment"># 1) linear warmup for warmup_iters steps</span></span
+><span class="listing__line" data-riga="233">    if it &lt; warmup_iters:</span
+><span class="listing__line" data-riga="234">        return learning_rate * (it + 1) / (warmup_iters + 1)</span
+><span class="listing__line" data-riga="235">    <span class="listing__comment"># 2) if it &gt; lr_decay_iters, return min learning rate</span></span
+><span class="listing__line" data-riga="236">    if it &gt; lr_decay_iters:</span
+><span class="listing__line" data-riga="237">        return min_lr</span
+><span class="listing__line" data-riga="238">    <span class="listing__comment"># 3) in between, use cosine decay down to min learning rate</span></span
+><span class="listing__line" data-riga="239">    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)</span
+><span class="listing__line" data-riga="240">    assert 0 &lt;= decay_ratio &lt;= 1</span
+><span class="listing__line" data-riga="241">    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) <span class="listing__comment"># coeff ranges 0..1</span></span
+><span class="listing__line" data-riga="242">    return min_lr + coeff * (learning_rate - min_lr)</span></code></pre>
+      <p class="listing__source">train.py · L231–L242 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/train.py#L231-L242">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq">lr = min_lr + ½ (1 + cos(π · decay_ratio)) (learning_rate − min_lr) ,&nbsp;&nbsp; decay_ratio =
+          <span class="frac"><span class="frac__num">it − warmup_iters</span><span class="frac__den">lr_decay_iters − warmup_iters</span></span>
+        </span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label ident" for="lr-max">learning_rate</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="lr-max" min="1" max="30" value="10">
+            <output class="range__value" id="lr-max-out" for="lr-max">0,010</output>
+          </div>
+          <label class="lab__label ident" for="lr-warmup">warmup_iters</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="lr-warmup" min="0" max="1000" step="10" value="100">
+            <output class="range__value" id="lr-warmup-out" for="lr-warmup">100</output>
+          </div>
+        </div>
+        <div class="lab__bar">
+          <label class="lab__label ident" for="lr-decay">lr_decay_iters</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="lr-decay" min="100" max="3000" step="50" value="1500">
+            <output class="range__value" id="lr-decay-out" for="lr-decay">1500</output>
+          </div>
+          <label class="lab__label ident" for="lr-min">min_lr</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="lr-min" min="0" max="100" value="10">
+            <output class="range__value" id="lr-min-out" for="lr-min">0,0010</output>
+          </div>
+        </div>
+        <div class="lab__body">
+          <div class="split">
+            <div class="figure">
+              <svg id="lr-grafico" viewBox="0 0 420 240" role="img" aria-labelledby="lr-grafico-titolo">
+                <title id="lr-grafico-titolo">Il learning rate a ogni iterazione</title>
+                <g id="lr-grafico-g"></g>
+              </svg>
+              <p class="figcap">La linea tratteggiata verticale è lr_decay_iters; l'asse arriva a 3.000 iterazioni.</p>
+            </div>
+            <div class="figure">
+              <div class="stats" id="lr-letture" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+        <div class="lab__foot">
+          Questi cursori disegnano solo la curva. L'addestramento qui sotto usa
+          learning_rate = 0,01, warmup_iters = 100, min_lr = 0,001 e
+          lr_decay_iters uguale al numero di passi scelto, come raccomanda il
+          commento di train.py.
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">AdamW, e i due gruppi di parametri</h3>
+      <p class="block__note">
+        <span class="mono">configure_optimizers</span> divide i parametri in base
+        al numero di dimensioni: le matrici — pesi dei Linear ed embedding —
+        ricevono il weight decay, i vettori — bias e LayerNorm — no. Restringere
+        verso zero una matrice di pesi regolarizza; restringere un bias o il
+        guadagno di una LayerNorm sposterebbe solo il punto di lavoro.
+      </p>
+
+      <pre class="listing" id="listato-optim"><code><span class="listing__line" data-riga="263">def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):</span
+><span class="listing__line" data-riga="264">    <span class="listing__comment"># start with all of the candidate parameters</span></span
+><span class="listing__line" data-riga="265">    param_dict = {pn: p for pn, p in self.named_parameters()}</span
+><span class="listing__line" data-riga="266">    <span class="listing__comment"># filter out those that do not require grad</span></span
+><span class="listing__line" data-riga="267">    param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}</span
+><span class="listing__line" data-riga="268">    <span class="listing__comment"># create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.</span></span
+><span class="listing__line" data-riga="269">    <span class="listing__comment"># i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.</span></span
+><span class="listing__line" data-riga="270">    decay_params = [p for n, p in param_dict.items() if p.dim() &gt;= 2]</span
+><span class="listing__line" data-riga="271">    nodecay_params = [p for n, p in param_dict.items() if p.dim() &lt; 2]</span
+><span class="listing__line" data-riga="272">    optim_groups = [</span
+><span class="listing__line" data-riga="273">        {'params': decay_params, 'weight_decay': weight_decay},</span
+><span class="listing__line" data-riga="274">        {'params': nodecay_params, 'weight_decay': 0.0}</span
+><span class="listing__line" data-riga="275">    ]</span></code></pre>
+      <p class="listing__source">model.py · L263–L275 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L263-L275">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq"><i>θ</i> ← <i>θ</i> (1 − lr · <i>λ</i>) ;&nbsp;&nbsp;
+          <i>m</i> ← <i>β</i><sub>1</sub><i>m</i> + (1 − <i>β</i><sub>1</sub>) <i>g</i> ;&nbsp;&nbsp;
+          <i>v</i> ← <i>β</i><sub>2</sub><i>v</i> + (1 − <i>β</i><sub>2</sub>) <i>g</i>² ;&nbsp;&nbsp;
+          <i>θ</i> ← <i>θ</i> − lr ·
+          <span class="frac">
+            <span class="frac__num"><i>m</i> / (1 − <i>β</i><sub>1</sub><sup>t</sup>)</span>
+            <span class="frac__den"><span class="rad"><span class="rad__seg">√</span><span class="rad__body"><i>v</i> / (1 − <i>β</i><sub>2</sub><sup>t</sup>)</span></span> + <i>ε</i></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Parametro (<span class="ident">named_parameters</span>)</th>
+              <th scope="col">Forma</th>
+              <th scope="col" class="table__num">Numeri</th>
+              <th scope="col"><span class="ident">weight_decay</span></th>
+            </tr>
+          </thead>
+          <tbody id="gruppi-tabella"></tbody>
+        </table>
+      </div>
+      <p class="block__note">
+        La "W" di AdamW sta per weight decay disaccoppiato: il peso viene
+        rimpicciolito direttamente, prima del passo, invece di sommare λθ al
+        gradiente come faceva Adam con la regolarizzazione L2 — dove il decay
+        finiva diviso per √v̂ insieme a tutto il resto. lm_head.weight non
+        compare: named_parameters() non ripete un tensore condiviso.
+      </p>
+    </div>
+
+    <div class="block">
+      <h3 class="block__title">Accumulo e taglio del gradiente</h3>
+      <div class="callouts">
+        <div class="callout callout--good">
+          <h4>gradient_accumulation_steps</h4>
+          <p>Un batch che non sta in memoria si spezza in micro-batch: il
+            gradiente si accumula su tutti prima del passo dell'ottimizzatore.
+            La loss si divide per il loro numero, così la somma dei gradienti è
+            la media che avrebbe dato il batch intero. Qui vale 1.</p>
+        </div>
+        <div class="callout">
+          <h4>clip_grad_norm_</h4>
+          <p>Se la norma di tutti i gradienti messi insieme supera
+            <span class="mono">grad_clip</span> = 1, vengono scalati tutti dello
+            stesso fattore: <i>g</i> ← <i>g</i> · min(1, <i>c</i> / ‖<i>g</i>‖).
+            La direzione resta quella, cambia solo la lunghezza del passo. È la
+            cintura di sicurezza contro un batch sfortunato.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- LABORATORIO DI ADDESTRAMENTO ---------- -->
+    <div class="block" id="laboratorio-addestramento">
+      <h3 class="block__title">Addestralo</h3>
+      <p class="block__note">
+        Il ciclo di train.py, eseguito nel tuo browser sul modello di questa
+        pagina. Ogni <span class="mono">eval_interval</span> passi
+        <span class="mono">estimate_loss()</span> misura la loss su dati di
+        addestramento e di validazione, e il modello scrive un campione. Quando
+        ti fermi, ogni laboratorio della pagina si ricalcola con i pesi nuovi.
+      </p>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <button class="btn" id="addestra" type="button">Addestra</button>
+          <button class="btn btn--ghost" id="azzera" type="button">Torna al passo zero</button>
+          <p class="lab__label ident">max_iters</p>
+          <div class="chips" id="passi-chip" role="group" aria-label="max_iters">
+            <button class="chip" type="button" data-iters="500" aria-pressed="false">500</button>
+            <button class="chip" type="button" data-iters="1500" aria-pressed="true">1500</button>
+            <button class="chip" type="button" data-iters="3000" aria-pressed="false">3000</button>
+          </div>
+        </div>
+        <div class="lab__body">
+          <div class="split">
+            <div class="figure">
+              <svg id="curva-loss" viewBox="0 0 420 280" role="img" aria-labelledby="curva-loss-titolo">
+                <title id="curva-loss-titolo">Loss di addestramento e di validazione durante l'addestramento</title>
+                <g id="curva-loss-g"></g>
+              </svg>
+              <div class="legend">
+                <span><span class="swatch swatch--1"></span> train</span>
+                <span><span class="swatch swatch--2"></span> val</span>
+                <span>– – ln 65, tirare a indovinare</span>
+              </div>
+            </div>
+            <div class="figure">
+              <div class="stats" id="addestra-letture" aria-live="polite"></div>
+              <div class="verdict" id="addestra-verdetto" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="figure">
+            <p class="lab__label">Campione — <span class="ident">generate()</span> da <span class="ident">"\n"</span>, <span class="ident">temperature</span> 1</p>
+            <pre class="code code--wrap" id="addestra-campione">—</pre>
+          </div>
+        </div>
+        <div class="lab__foot">
+          batch_size = 16, block_size = 8, AdamW con β = (0,9; 0,99) e weight
+          decay 0,1, grad_clip = 1, eval_iters = 10. I dati sono i primi 100 mila
+          caratteri di <a href="https://github.com/karpathy/char-rnn/tree/master/data/tinyshakespeare">Tiny Shakespeare</a>,
+          divisi 90/10 come in prepare.py e scaricati da questo sito solo quando
+          premi Addestra. Il modello di nanoGPT per Shakespeare arriva a una loss
+          di validazione di circa 1,47 con 10,65 milioni di parametri; questo, con
+          7.760, si ferma attorno a 2,1 — e si vede, ma si vede anche che ha
+          imparato le parole corte, i nomi in maiuscolo e i due punti a capo.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PARTE QUINTA
+       ====================================================================== -->
+  <section class="part" id="generazione">
+    <p class="part__num">Parte quinta</p>
+    <h2 class="part__title">Generazione</h2>
+    <p class="part__lead">
+      Un GPT scrive un carattere alla volta: calcola la distribuzione del
+      prossimo, ne estrae uno, lo aggiunge in fondo e ricomincia. Il modello
+      non ha memoria fra un giro e l'altro: rilegge ogni volta tutto il
+      contesto, fino a block_size caratteri.
+    </p>
+
+    <div class="block">
+      <h3 class="block__title">generate()</h3>
+      <p class="block__note">
+        Due manopole cambiano il carattere estratto senza toccare il modello.
+        <span class="mono">temperature</span> divide i logits prima della
+        softmax: sotto 1 la distribuzione si stringe sul favorito, sopra 1 si
+        appiattisce. <span class="mono">top_k</span> tiene solo i k candidati
+        migliori e manda gli altri a −∞.
+      </p>
+
+      <pre class="listing" id="listato-generate"><code><span class="listing__line" data-riga="306">def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):</span
+><span class="listing__line" data-riga="307">    """</span
+><span class="listing__line" data-riga="308">    Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete</span
+><span class="listing__line" data-riga="309">    the sequence max_new_tokens times, feeding the predictions back into the model each time.</span
+><span class="listing__line" data-riga="310">    Most likely you'll want to make sure to be in model.eval() mode of operation for this.</span
+><span class="listing__line" data-riga="311">    """</span
+><span class="listing__line" data-riga="312">    for _ in range(max_new_tokens):</span
+><span class="listing__line" data-riga="313">        <span class="listing__comment"># if the sequence context is growing too long we must crop it at block_size</span></span
+><span class="listing__line" data-riga="314">        idx_cond = idx if idx.size(1) &lt;= self.config.block_size else idx[:, -self.config.block_size:]</span
+><span class="listing__line" data-riga="315">        <span class="listing__comment"># forward the model to get the logits for the index in the sequence</span></span
+><span class="listing__line" data-riga="316">        logits, _ = self(idx_cond)</span
+><span class="listing__line" data-riga="317">        <span class="listing__comment"># pluck the logits at the final step and scale by desired temperature</span></span
+><span class="listing__line" data-riga="318">        logits = logits[:, -1, :] / temperature</span
+><span class="listing__line" data-riga="319">        <span class="listing__comment"># optionally crop the logits to only the top k options</span></span
+><span class="listing__line" data-riga="320">        if top_k is not None:</span
+><span class="listing__line" data-riga="321">            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))</span
+><span class="listing__line" data-riga="322">            logits[logits &lt; v[:, [-1]]] = -float('Inf')</span
+><span class="listing__line" data-riga="323">        <span class="listing__comment"># apply softmax to convert logits to (normalized) probabilities</span></span
+><span class="listing__line" data-riga="324">        probs = F.softmax(logits, dim=-1)</span
+><span class="listing__line" data-riga="325">        <span class="listing__comment"># sample from the distribution</span></span
+><span class="listing__line" data-riga="326">        idx_next = torch.multinomial(probs, num_samples=1)</span
+><span class="listing__line" data-riga="327">        <span class="listing__comment"># append sampled index to the running sequence and continue</span></span
+><span class="listing__line" data-riga="328">        idx = torch.cat((idx, idx_next), dim=1)</span
+><span class="listing__line" data-riga="329"> </span
+><span class="listing__line" data-riga="330">    return idx</span></code></pre>
+      <p class="listing__source">model.py · L306–L330 · <a href="https://github.com/karpathy/nanoGPT/blob/3adf61e154c3fe3fca428ad6bc3818b27a3b8291/model.py#L306-L330">GitHub</a></p>
+
+      <div class="formula">
+        <span class="eq"><i>p</i><sub>i</sub> =
+          <span class="frac">
+            <span class="frac__num"><i>e</i><sup><i>z</i><sub>i</sub> / τ</sup></span>
+            <span class="frac__den">Σ<sub><i>j</i> ∈ top-k</sub> <i>e</i><sup><i>z</i><sub>j</sub> / τ</sup></span>
+          </span>
+          ,&nbsp;&nbsp; τ = temperature ,&nbsp;&nbsp; idx_next ∼ multinomial(<i>p</i>)
+        </span>
+      </div>
+
+      <div class="lab">
+        <div class="lab__bar">
+          <label class="lab__label ident" for="temperatura">temperature</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="temperatura" min="10" max="200" value="100">
+            <output class="range__value" id="temperatura-out" for="temperatura">1,00</output>
+          </div>
+          <label class="lab__label ident" for="topk">top_k</label>
+          <div class="range range--inline">
+            <input class="range__slider" type="range" id="topk" min="1" max="65" value="65">
+            <output class="range__value" id="topk-out" for="topk">None</output>
+          </div>
+        </div>
+        <div class="lab__bar">
+          <button class="btn" id="genera-1" type="button">+1 carattere</button>
+          <button class="btn btn--ghost" id="genera-100" type="button">+100 caratteri</button>
+          <button class="btn btn--ghost" id="genera-azzera" type="button">Ricomincia dal prompt</button>
+        </div>
+        <div class="lab__body">
+          <div class="figure">
+            <p class="lab__label"><span class="ident">idx</span> — in verde <span class="ident">idx_cond</span>, la finestra che il modello vede</p>
+            <div class="tokens" id="gen-idx"></div>
+          </div>
+          <div class="split">
+            <div class="figure">
+              <p class="lab__label"><span class="ident">probs</span> del prossimo carattere — i 15 più probabili, scalati sul favorito</p>
+              <div class="bars bars--compact" id="gen-barre"></div>
+            </div>
+            <div class="figure">
+              <div class="stats" id="gen-letture" aria-live="polite"></div>
+              <div class="verdict" id="gen-verdetto" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="figure">
+            <p class="lab__label ident">decode(idx)</p>
+            <pre class="code code--wrap" id="gen-testo"></pre>
+          </div>
+        </div>
+        <div class="lab__foot">
+          Si parte dal prompt dei laboratori. La barra ambra è il favorito,
+          quello che sceglierebbe una temperatura vicina a zero; il gettone
+          ambra è l'ultimo carattere estratto. top_k = 65 vuol dire nessun taglio, il
+          <span class="mono">None</span> di sample.py. Con il modello al passo zero
+          la distribuzione è quasi piatta e il testo è rumore: addestralo e torna
+          qui.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================================================================
+       PER APPROFONDIRE
+       ====================================================================== -->
+  <section class="part" id="letture">
+    <p class="part__num">Per approfondire</p>
+    <h2 class="part__title">Da qui in avanti</h2>
+
+    <nav class="index" aria-label="Letture">
+      <a class="index__row" href="https://github.com/karpathy/nanoGPT">
+        <span class="index__main">
+          <span class="index__label">nanoGPT</span>
+          <span class="index__note">Il codice di questa pagina, con train.py, sample.py e le configurazioni.</span>
+        </span>
+        <span class="index__meta">github.com</span>
+      </a>
+      <a class="index__row" href="https://www.youtube.com/watch?v=kCc8FmEb1nY">
+        <span class="index__main">
+          <span class="index__label">Let's build GPT: from scratch, in code, spelled out</span>
+          <span class="index__note">Andrej Karpathy costruisce lo stesso modello in due ore, dal bigramma all'attenzione.</span>
+        </span>
+        <span class="index__meta">youtube.com</span>
+      </a>
+      <a class="index__row" href="https://arxiv.org/abs/1706.03762">
+        <span class="index__main">
+          <span class="index__label">Attention Is All You Need</span>
+          <span class="index__note">Il Transformer del 2017: scaled dot-product attention e teste multiple.</span>
+        </span>
+        <span class="index__meta">arxiv.org</span>
+      </a>
+      <a class="index__row" href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">
+        <span class="index__main">
+          <span class="index__label">Language Models are Unsupervised Multitask Learners</span>
+          <span class="index__note">L'articolo di GPT-2: da qui vengono la LayerNorm prima dei sotto-blocchi e l'inizializzazione scalata dei c_proj.</span>
+        </span>
+        <span class="index__meta">cdn.openai.com</span>
+      </a>
+      <a class="index__row" href="https://poloclub.github.io/transformer-explainer/">
+        <span class="index__main">
+          <span class="index__label">Transformer Explainer</span>
+          <span class="index__note">GPT-2 vero che gira nel browser, con l'attenzione animata e un cursore per la temperatura.</span>
+        </span>
+        <span class="index__meta">poloclub.github.io</span>
+      </a>
+      <a class="index__row" href="https://bbycroft.net/llm">
+        <span class="index__main">
+          <span class="index__label">LLM Visualization</span>
+          <span class="index__note">Brendan Bycroft: un nano-GPT in 3D, ogni moltiplicazione al suo posto.</span>
+        </span>
+        <span class="index__meta">bbycroft.net</span>
+      </a>
+      <a class="index__row" href="https://jalammar.github.io/illustrated-gpt2/">
+        <span class="index__main">
+          <span class="index__label">The Illustrated GPT-2</span>
+          <span class="index__note">Jay Alammar: domande, chiavi e valori disegnati a mano.</span>
+        </span>
+        <span class="index__meta">jalammar.github.io</span>
+      </a>
+    </nav>
+  </section>
+
+</main>
+
+<site-footer></site-footer>
+
+<script src="/assets/js/tools/nanogpt.js"></script>
+</body>
+</html>

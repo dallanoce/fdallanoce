@@ -19,10 +19,11 @@
    8. Voci CV        — esperienze e formazione
    9. Form           — campi, bottoni, risultati (per i tool)
    10. Tool grandi   — pannelli, tabelle, barre, liste con spunta
-   11. Guida         — parti, formule, schede, laboratori (guida correlazione)
-   12. Footer
-   13. Utility
-   14. Stampa
+   11. Guida         — parti, formule, schede, laboratori (guide lunghe)
+   12. Codice        — listati, tensori, gettoni, curve (spiegazione di nanoGPT)
+   13. Footer
+   14. Utility
+   15. Stampa
    ========================================================================== */
 
 
@@ -1097,10 +1098,9 @@ a:hover { color: var(--accent-deep); }
    componenti servono all'altro tipo di tool che c'è sul sito: una guida
    lunga da leggere, con dentro dei laboratori con cui giocare.
 
-   Li usa oggi la guida alla correlazione. Sono pensati per essere riusabili
-   da un'eventuale seconda guida, ed è per questo che stanno qui e non in un
-   foglio a parte: il sito ha un foglio di stile solo, e i colori vengono
-   tutti dai token della sezione 1, così anche questa pagina cambia tema
+   Li usano la guida alla correlazione e Inside nanoGPT. Stanno qui e non in
+   un foglio a parte: il sito ha un foglio di stile solo, e i colori vengono
+   tutti dai token della sezione 1, così anche queste pagine cambiano tema
    insieme al resto.
    ========================================================================== */
 
@@ -1460,8 +1460,11 @@ a:hover { color: var(--accent-deep); }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 28px;
+  /* La misura della cella è una proprietà personalizzata: le varianti di
+     .heat della sezione 12 la cambiano, e il JavaScript la riusa per le
+     colonne della griglia. */
+  width: var(--cella-l, 38px);
+  height: var(--cella-a, 28px);
   border-radius: 2px;
   font-family: var(--font-mono);
   font-size: var(--t-xs);
@@ -1580,7 +1583,9 @@ a:hover { color: var(--accent-deep); }
   margin-top: var(--s-5);
 }
 
-.callout { display: grid; gap: var(--s-2); border-top: 2px solid var(--warm); padding-top: var(--s-3); }
+/* align-content: start, perché i riquadri di una fila sono alti uguali e
+   senza questa riga il più corto distribuirebbe il vuoto fra le sue righe. */
+.callout { display: grid; gap: var(--s-2); align-content: start; border-top: 2px solid var(--warm); padding-top: var(--s-3); }
 .callout--good { border-top-color: var(--accent); }
 
 .callout h4 { font-size: var(--t-base); font-weight: 700; margin: 0; }
@@ -1626,7 +1631,711 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   12. FOOTER
+   12. CODICE — listati, tensori, gettoni, curve
+
+   La sezione 11 serve a una guida che parla di dati. Questi componenti
+   servono a una guida che spiega del codice: il listato con la riga che si
+   sta guardando, le matrici con il loro nome e la loro forma, il testo
+   spezzato in gettoni con il loro numero.
+
+   Li usa Inside nanoGPT. Come nella sezione 11, i colori sono solo token:
+   il JavaScript assegna classi e passa quantità, mai colori.
+   ========================================================================== */
+
+
+/* --- Listato --------------------------------------------------------------
+   Codice vero, con i suoi numeri di riga. Il numero non è testo della
+   pagina: lo disegna ::before leggendo data-riga, così selezionando il
+   codice per copiarlo non ci si porta dietro anche i numeri.
+
+   Ogni riga è un blocco, perché la riga corrente si evidenzia per intero;
+   per lo stesso motivo il <code> è largo quanto la riga più lunga, e lo
+   sfondo dell'evidenziazione arriva fino in fondo anche scorrendo.
+
+   Fra uno span di riga e il successivo non ci deve essere testo: dentro un
+   <pre> anche un a capo è testo, e diventerebbe una riga vuota in più. Per
+   tenere comunque una riga di codice per riga di sorgente, si va a capo
+   dentro il tag di chiusura:  </span⏎><span class="listing__line" …>  */
+
+.listing {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.7;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3) 0;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.listing code {
+  display: block;
+  min-width: max-content;
+  font: inherit;
+}
+
+.listing__line {
+  display: block;
+  white-space: pre;
+  padding-right: var(--s-4);
+  border-left: 2px solid transparent;
+  transition: background var(--speed) ease;
+}
+
+.listing__line::before {
+  content: attr(data-riga);
+  display: inline-block;
+  width: 4.5em;
+  padding-right: 1.5em;
+  text-align: right;
+  color: var(--ink-3);
+}
+
+.listing__line.is-current {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--ink);
+}
+.listing__line.is-current::before { color: var(--accent); }
+
+/* Le righe saltate fra due pezzi dello stesso file */
+.listing__line--gap { color: var(--ink-3); }
+
+.listing__comment { color: var(--ink-3); }
+.listing__line.is-current .listing__comment { color: var(--ink-2); }
+
+/* Da dove viene il listato: file, righe e link al sorgente */
+.listing__source {
+  margin: var(--s-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+
+/* --- Tensori ---------------------------------------------------------------
+   Una fila di matrici con in mezzo l'operazione che le lega: x @ Wᵀ = y.
+   Ogni matrice ha sopra il nome che ha nel codice e la sua forma. Sugli
+   schermi stretti la fila va a capo, e una matrice troppo larga scorre
+   dentro la propria .heat-scroll invece di allargare la pagina. */
+
+.tensors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+.tensor {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tensor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+}
+
+.tensor__name { font-family: var(--font-mono); font-size: var(--t-sm); color: var(--ink); }
+.tensor__shape { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-3); }
+
+.tensors__op {
+  font-family: var(--font-mono);
+  font-size: var(--t-lg);
+  color: var(--ink-3);
+}
+
+/* Una .tensor può contenere anche una .heat-scroll: la sua larghezza
+   massima è quella della fila, non quella della matrice. */
+.tensor .heat-scroll { max-width: 100%; }
+
+
+/* --- Varianti della matrice colorata (sezione 11) --------------------------
+   Quattro misure di cella, solo colore, senza il numero stampato: il valore
+   resta nel title e nell'aria-label della cella.
+     --compact  11px, per i pesi e le matrici larghe, dove conta la forma
+     --fine      7px, per le matrici da 64 o 65 righe o colonne
+     --mini      4px, per le miniature dello schema del Block (2px sui telefoni)
+     --wide     cella con il numero, ma larga: per quattro decimali
+   Le altre regole sono stati di una cella: mascherata (−∞ nell'attenzione
+   causale), selezionata, attenuata perché non c'entra con il passo,
+   ripetuta da un broadcast. */
+
+.heat--compact { gap: 1px; --cella-l: 11px; --cella-a: 11px; }
+.heat--fine    { gap: 1px; --cella-l: 7px;  --cella-a: 7px; }
+.heat--mini    { gap: 1px; --cella-l: 4px;  --cella-a: 4px; }
+.heat--wide    { --cella-l: 3.5rem; }
+
+.heat--compact .heat__cell { border-radius: 1px; font-size: 0; }
+.heat--fine .heat__cell,
+.heat--mini .heat__cell { border-radius: 0; font-size: 0; }
+.heat--mini .heat__cell.is-masked { background-image: none; }
+
+/* Le etichette di riga non devono allungare le righe: in un prodotto la
+   matrice di sinistra e il risultato stanno affiancati, e le loro righe
+   devono cadere alla stessa altezza. La riga è alta quanto la cella, e
+   un'etichetta più alta sborda di un pixel sopra e sotto. */
+.heat--compact .heat__rowhead { line-height: 1; padding-right: 0.4em; }
+
+/* Sui telefoni le miniature restano dentro la colonna dello schema. */
+@media (max-width: 40rem) {
+  .heat--mini { --cella-l: 2px; --cella-a: 2px; }
+}
+
+/* Le celle su cui si clicca sono <button>: si raggiungono con il tab e
+   si attivano con Invio. Qui si toglie solo l'aspetto del bottone. */
+button.heat__cell {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.heat__cell.is-masked {
+  color: var(--ink-3);
+  background: var(--surface-2);
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--rule) 4px 5px);
+}
+
+.heat__cell.is-focus { box-shadow: inset 0 0 0 2px var(--ink); }
+.heat__cell.is-dim { opacity: 0.3; }
+
+/* Una riga intera da seguire attraverso più matrici: un filo più sottile
+   di .is-focus, che resta per la cella su cui si è cliccato. */
+.heat__cell.is-pick { box-shadow: inset 0 0 0 1px var(--ink); }
+
+/* Le copie che il broadcast aggiunge: lo stesso numero, ripetuto su ogni
+   riga (o colonna) senza che sia mai stato scritto in memoria. */
+.heat__cell.is-ghost { opacity: 0.35; }
+
+.heat__rowhead.is-focus,
+.heat__colhead.is-focus { color: var(--ink); font-weight: 500; }
+
+/* Una colonna in più a destra, fuori dalla matrice: la somma di riga. */
+.heat__note {
+  display: flex;
+  align-items: center;
+  padding-left: 0.6em;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Fascia sopra le colonne che dice a chi appartengono: q | k | v, oppure
+   testa 0 | testa 1. Una cella di fascia per ogni colonna. */
+.heat__band { height: 4px; border-radius: 1px; align-self: end; }
+.heat__band--1 { background: var(--serie-1); }
+.heat__band--2 { background: var(--serie-2); }
+.heat__band--3 { background: var(--serie-3); }
+
+
+/* --- Lettura di un calcolo -------------------------------------------------
+   Un prodotto scalare scritto termine per termine. A differenza di
+   .formula va a capo: otto termini non ci stanno su un telefono, e una
+   formula centrata che sborda si taglia a sinistra. */
+
+.readout {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.8;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+  overflow-wrap: anywhere;
+}
+.readout b { color: var(--ink); font-weight: 500; }
+
+
+/* --- Gettoni ---------------------------------------------------------------
+   Il testo come lo vede il modello: un carattere e il suo numero. Lo
+   spazio e l'a capo sono disegnati (␣ ↵) perché altrimenti sparirebbero, e
+   in grigio perché non si confondano con caratteri veri. */
+
+.tokens { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+
+.token {
+  display: inline-grid;
+  justify-items: center;
+  min-width: 2.1rem;
+  padding: var(--s-1) var(--s-2);
+  font-family: var(--font-mono);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.token__ch { font-size: var(--t-sm); line-height: 1.3; color: var(--ink); white-space: pre; }
+.token__ch.is-ws { color: var(--ink-3); }
+
+.token__id {
+  font-size: var(--t-xs);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+/* Stati: dentro il contesto, il carattere da prevedere, tagliato fuori dalla
+   finestra di block_size, fuori vocabolario. */
+.token.is-ctx { border-color: var(--accent); background: var(--accent-soft); }
+.token.is-target { border-color: var(--warm); background: var(--warm-soft); }
+.token.is-out { opacity: 0.4; border-style: dashed; }
+.token.is-unknown { border-color: var(--warm); border-style: dashed; }
+.token.is-unknown .token__ch { color: var(--warm); }
+
+/* Il vocabolario intero: 65 gettoni, più stretti */
+.tokens--dense .token { min-width: 1.75rem; padding: 0 var(--s-1); }
+
+
+/* --- Barre strette ---------------------------------------------------------
+   .bars della sezione 10 con l'etichetta corta (un carattere) e la barra
+   evidenziata per il carattere estratto o per quello giusto. */
+
+.bars--compact .bar { grid-template-columns: 2.5rem minmax(0, 1fr) 4rem; gap: var(--s-2); }
+.bar--pick .bar__fill { background: var(--warm); }
+.bar--pick .bar__value { color: var(--ink); }
+
+.bar__label { font-family: var(--font-mono); color: var(--ink-2); white-space: pre; }
+
+
+/* --- Curve e barre nei grafici SVG ----------------------------------------
+   Si aggiungono alla cornice della sezione 11 (.ax, .gridline, .axlab). */
+
+.curve { fill: none; stroke: var(--serie-1); stroke-width: 2; stroke-linejoin: round; }
+.curve--2 { stroke: var(--serie-2); }
+.curve--3 { stroke: var(--serie-3); stroke-dasharray: 4 3; stroke-width: 1.5; }
+.cursor { fill: none; stroke: var(--warm); stroke-width: 1.5; }
+.dot { fill: var(--warm); }
+
+.vbar { fill: var(--serie-1); }
+.vbar--neg { fill: var(--serie-2); }
+.vbar--ghost { fill: var(--ink-3); fill-opacity: 0.3; }
+.vbar--3 { fill: var(--serie-3); fill-opacity: 0.45; }
+
+
+/* --- Listato accanto alla spiegazione --------------------------------------
+   .split della sezione 11 con più spazio a sinistra: le righe di codice
+   sono lunghe, il testo che le spiega no. Sotto i 54rem torna una colonna
+   sola, come .split; la regola va ripetuta perché questa, venendo dopo,
+   vincerebbe anche sulla media query della sezione 11. */
+
+.split--code { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 54rem) { .split--code { grid-template-columns: 1fr; } }
+
+
+/* --- Un nome di codice dentro un'etichetta in maiuscolo --------------------
+   .lab__label, .stat__key e le intestazioni di tabella sono in maiuscolo.
+   Un nome di variabile lì dentro deve restare com'è: learning_rate e
+   LEARNING_RATE non sono la stessa cosa, e μ in maiuscolo diventa una M.
+   Va sull'etichetta intera se è tutta codice, altrimenti su uno span. */
+
+.ident { text-transform: none; }
+
+
+/* --- Testo generato --------------------------------------------------------
+   .code della sezione 7 che va a capo: il testo che scrive il modello non è
+   codice, e farlo scorrere in orizzontale sarebbe solo scomodo. */
+
+.code--wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+
+/* --- Voce rientrata in un indice -------------------------------------------
+   Una riga di .index (sezione 6) che sta dentro quella sopra: i moduli di
+   un Block nella mappa dell'architettura. */
+
+.index__row--nested { padding-left: var(--s-7); }
+.index__row--nested::before { left: var(--s-5); }
+
+
+/* --- Un passo di una spiegazione ------------------------------------------
+   Il testo di un passo del laboratorio sull'attenzione. Senza JavaScript
+   si leggono tutti in fila; con, se ne vede uno alla volta. */
+
+.step { display: grid; gap: var(--s-3); }
+.step__title { font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+.step p { margin: 0; color: var(--ink-2); font-size: var(--t-sm); }
+
+
+/* --- Righelli delle dimensioni ---------------------------------------------
+   Una parentesi sotto le colonne e una accanto alle righe, con il nome
+   della dimensione e quanto vale: "C = 16", "T = 8". Sono tracce in più
+   della griglia di .heat, e il JavaScript le stende sulle celle che
+   misurano. In un prodotto la dimensione interna porta la stessa etichetta
+   sui due fattori: è da lì che si vede che le forme combaciano. */
+
+.heat__ruler {
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.heat__ruler--x {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding-top: 0.25rem;
+}
+.heat__ruler--x::before {
+  content: "";
+  align-self: stretch;
+  height: 0.3rem;
+  border: 1px solid var(--rule-strong);
+  border-top: 0;
+}
+
+.heat__ruler--y {
+  align-items: center;
+  gap: 0.3rem;
+  padding-left: 0.25rem;
+}
+.heat__ruler--y::before {
+  content: "";
+  align-self: stretch;
+  width: 0.3rem;
+  border: 1px solid var(--rule-strong);
+  border-left: 0;
+}
+
+
+/* --- Prodotto fra matrici, riga per colonna -------------------------------
+   Lo schema di Falk: il primo fattore in basso a sinistra, il secondo in
+   alto a destra, il risultato in basso a destra. La riga i del primo e la
+   colonna j del secondo si incontrano nella cella (i, j) del risultato.
+   Funziona solo se le righe del primo e del risultato hanno la stessa
+   altezza, e le colonne del secondo e del risultato la stessa larghezza:
+   le tre matrici usano la stessa misura di cella, e nessuna delle due
+   affiancate ha intestazioni di colonna. Il bias, se c'è, è una riga sola
+   fra il secondo fattore e il risultato, allineata alle sue colonne. */
+
+.matmul {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "op   b"
+    ".    bias"
+    "a    out";
+  gap: var(--s-3) var(--s-4);
+  width: max-content;
+}
+.matmul--nobias {
+  grid-template-areas:
+    "op   b"
+    "a    out";
+}
+
+.matmul__op   { grid-area: op;  align-self: end; justify-self: end; max-width: 13rem; }
+.matmul__b    { grid-area: b; }
+.matmul__bias { grid-area: bias; }
+.matmul__a    { grid-area: a;   justify-self: end; align-self: start; }
+.matmul__out  { grid-area: out; align-self: start; }
+
+/* Le teste delle due matrici affiancate stanno su una riga sola, così le
+   righe delle celle partono alla stessa altezza. */
+.matmul .tensor__head { flex-wrap: nowrap; white-space: nowrap; }
+
+
+/* --- Mazzo di teste --------------------------------------------------------
+   Un tensore (B, nh, T, hs) ha una dimensione in più di quelle che una
+   pagina sa disegnare. Le nh matrici sono carte, una dietro l'altra: la
+   testa scelta davanti, le altre spostate in alto a destra. Le carte dietro
+   sono bottoni, e cliccarle porta quella testa davanti.
+   Lo spostamento non occupa spazio nella griglia: lo riserva il padding
+   del mazzo, (n − 1) volte --sfasa in alto e a destra. --n e --livello
+   arrivano dal JavaScript. */
+
+.deck {
+  --sfasa: 1.5rem;
+  display: grid;
+  width: max-content;
+  padding:
+    calc((var(--n, 1) - 1) * var(--sfasa))
+    calc((var(--n, 1) - 1) * var(--sfasa))
+    0 0;
+}
+
+.deck__card {
+  grid-area: 1 / 1;
+  display: grid;
+  gap: var(--s-1);
+  align-content: start;
+  padding: var(--s-2);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  transform: translate(
+    calc(var(--livello, 0) * var(--sfasa)),
+    calc(var(--livello, 0) * var(--sfasa) * -1)
+  );
+}
+
+button.deck__card {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.deck__card.is-back { opacity: 0.55; transition: opacity var(--speed) ease, border-color var(--speed) ease; }
+.deck__card.is-back:hover,
+.deck__card.is-back:focus-visible { opacity: 0.9; border-color: var(--accent); }
+
+.deck__label { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-3); }
+
+/* Le miniature dello schema del Block: carte piccole, senza etichette. */
+.deck--mini { --sfasa: 0.3rem; }
+.deck--mini .deck__card { padding: 2px; border-radius: 2px; }
+
+
+/* --- Operazione ------------------------------------------------------------
+   Quello che sta fra due tensori: un glifo, il codice che la esegue e il
+   suo tipo. I tipi sono quattro e si riconoscono dal bordo e dal glifo,
+   non da un colore: i colori delle serie dicono già q, k, v e le teste.
+     --prodotto  Linear e @: ogni numero dipende da una riga intera e da
+                 una colonna intera
+     --forma     view, transpose, split, concat: nessun numero cambia,
+                 cambia solo come sono messi in fila (bordo tratteggiato)
+     --elemento  +, ×, gelu, masked_fill, dropout: cella per cella
+     --riga      layer_norm, softmax, mean: legge tutta una dimensione,
+                 di solito una riga intera */
+
+.op {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  max-width: 100%;
+  padding: var(--s-1) var(--s-3) var(--s-1) var(--s-1);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.op__glyph {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.3em;
+  border-radius: 2px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+
+.op__body { display: grid; gap: 0.15em; min-width: 0; }
+
+.op__code {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.op__kind {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.op__note { font-size: var(--t-xs); color: var(--ink-2); }
+
+.op--prodotto .op__glyph { background: var(--accent-soft); color: var(--accent); }
+/* --elemento è l'aspetto di base: la regola c'è perché la classe abbia un
+   posto dove guardare, e per cambiarlo qui se un giorno servirà. */
+.op--elemento .op__glyph { background: var(--surface-2); color: var(--ink); }
+.op--forma { border-style: dashed; }
+.op--forma .op__glyph { background: transparent; border: 1px dashed var(--rule-strong); }
+.op--riga .op__glyph { background: var(--warm-soft); color: var(--warm); }
+
+/* Un'operazione che è anche un link: lo schema del Block. */
+a.op { transition: border-color var(--speed) ease; }
+a.op:hover { border-color: var(--accent); }
+a.op:hover .op__code { color: var(--accent); }
+
+
+/* --- Flusso ----------------------------------------------------------------
+   Un calcolo dall'alto in basso: una tappa di tensori, l'operazione con la
+   freccia, la tappa successiva. Una tappa è una fila che va a capo come
+   .tensors; un prodotto largo scorre dentro la propria .heat-scroll. */
+
+.flow { display: grid; justify-items: start; gap: var(--s-3); min-width: 0; }
+.flow > * { max-width: 100%; }
+
+.flow__stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+  min-width: 0;
+}
+
+.flow__op {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding-left: var(--s-3);
+}
+.flow__op::before {
+  content: "↓";
+  font-family: var(--font-mono);
+  font-size: var(--t-lg);
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+
+/* --- Schema del Block ------------------------------------------------------
+   Il flusso residuo è la linea verde a sinistra: il vettore x che scende
+   attraverso il Block. I due rami se ne staccano, fanno il loro calcolo e
+   ci tornano sommandosi nel ⊕. Ogni operazione è un link al laboratorio
+   che la spiega, con sotto la miniatura del tensore che produce. */
+
+.stream {
+  --stacco: var(--s-6);
+  list-style: none;
+  display: grid;
+  gap: var(--s-4);
+  margin: 0 0 0 var(--s-3);
+  padding: 0 0 0 var(--stacco);
+  border-left: 3px solid var(--accent);
+}
+
+.stream__x {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+}
+/* il pallino sulla linea */
+.stream__x::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--stacco) - 0.5rem - 1.5px);
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.stream__branch {
+  position: relative;
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+/* il ramo che si stacca dalla linea */
+.stream__branch::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--stacco));
+  top: 1.6rem;
+  width: var(--stacco);
+  border-top: 1px solid var(--accent);
+}
+
+.stream__code { margin: 0; font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-2); }
+
+.stream__ops {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--s-4) var(--s-2);
+  margin: 0;
+  padding: 0;
+}
+
+.stream__op {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--s-2);
+  row-gap: var(--s-2);
+  align-items: start;
+  justify-items: start;
+}
+.stream__op::before {
+  content: "→";
+  grid-row: 1 / span 3;
+  padding-top: 0.4rem;
+  font-family: var(--font-mono);
+  color: var(--ink-3);
+}
+.stream__op > * { grid-column: 2; }
+.stream__op:first-child { grid-template-columns: auto; }
+.stream__op:first-child::before { content: none; }
+.stream__op:first-child > * { grid-column: 1; }
+
+.stream__shape { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-3); }
+.stream__mini { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-1); min-height: 1rem; }
+
+/* Il ritorno sulla linea: il ⊕ sta sul flusso residuo, il filo lo collega
+   al ramo. Le misure sono quelle di .stream e di .stream__branch. */
+.stream__add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}
+.stream__add::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  width: calc(var(--stacco) + var(--s-4) - 0.5rem);
+  border-top: 1px solid var(--accent);
+}
+.stream__plus {
+  position: absolute;
+  left: calc(-1 * (var(--stacco) + var(--s-4) + 1px) - 0.9rem - 1.5px);
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  margin-top: -0.9rem;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--t-base);
+  line-height: 1;
+  text-decoration: none;
+}
+.stream__plus:hover { background: var(--accent-soft); }
+
+
+/* ==========================================================================
+   13. FOOTER
    ========================================================================== */
 
 .footer {
@@ -1651,7 +2360,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   13. UTILITY — poche e mirate
+   14. UTILITY — poche e mirate
    ========================================================================== */
 
 .stack-sm > * + * { margin-top: var(--s-3); }
@@ -1666,7 +2375,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   14. STAMPA
+   15. STAMPA
    Quello che si stampa è il contenuto: testata, footer e comandi restano
    fuori. Un tool marca con .no-print i suoi moduli e i suoi bottoni, e con
    .print-only le righe che hanno senso solo sul foglio (un'intestazione con
@@ -1733,6 +2442,8 @@ a:hover { color: var(--accent-deep); }
   .lab__bar, .chip, .btn { display: none !important; }
   .lab { break-inside: avoid; }
   .plate, .move, .callout, .table-wrap, .formula { break-inside: avoid; }
+  .listing, .tensor, .tokens, .readout { break-inside: avoid; }
+  .matmul, .deck, .flow__stage, .stream__branch { break-inside: avoid; }
   .part { break-before: page; }
   .part:first-of-type { break-before: auto; }
 

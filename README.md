@@ -18,6 +18,7 @@ known, and what `x-default` points at.
 ├── 404.html                       error page
 ├── _template.it.html              copy this pair for every new page
 ├── _template.en.html
+├── .assetsignore                  what the deploy must NOT publish (see Deploying)
 ├── it/                            Italian tree
 │   ├── index.html                 home
 │   ├── cv/
@@ -33,6 +34,7 @@ known, and what `x-default` points at.
 ├── stile/                         style guide (noindex, Italian only, not in the nav)
 └── assets/                        shared by both trees, never duplicated
     ├── css/style.css              the entire stylesheet
+    ├── data/                      static files a tool fetches (nanoGPT's Shakespeare excerpt)
     └── js/
         ├── tema.js                light/dark theme, loaded first
         ├── i18n.js                page language and JS strings
@@ -124,16 +126,23 @@ right year. The right-hand column holds the destination domain (`medium.com`,
 The title is the real published title and is **identical in both files**. Only the
 month is translated.
 
-## Deploying to Cloudflare Pages
+## Deploying
 
-1. Push this folder to a GitHub repository.
-2. In Cloudflare: **Workers & Pages → Create → Pages → Connect to Git**.
-3. Build command: leave **empty**. Output directory: `/` (the repository root).
-4. Every push publishes automatically.
+The site runs as a Cloudflare Worker with static assets, connected to this
+repository through Workers Builds, and is served at `fdallanoce.com`. Every push
+to `main` publishes; every other branch gets a preview version.
 
-The site goes live on `project-name.pages.dev`. When you have a custom domain,
-attach it under **Custom domains** — no code changes needed, which is the reason
-paths are absolute.
+Settings, in the Cloudflare dashboard under the Worker's **Settings → Build**:
+
+- Build command: **empty**
+- Deploy command: `npx wrangler deploy`
+- Version command: `npx wrangler versions upload --assets=. --name=fdallanoce --compatibility-date=2026-10-23`
+
+The whole repository root is uploaded, so **`.assetsignore` lists what must not
+be published**: this README, `docs/`, `.claude/`, `.git` and the page templates.
+Add to it anything new at the root that is not part of the site.
+
+Paths are absolute, so moving to another host or domain needs no code changes.
 
 ## Before going live
 
@@ -145,7 +154,7 @@ paths are absolute.
 - [ ] Add `assets/cv.pdf` and re-enable the download link in both `cv/index.html`
       files (currently commented out), or drop it
 - [ ] Add a favicon under `assets/`
-- [ ] Once the domain exists, make the `hreflang` and `canonical` URLs absolute —
+- [ ] The domain is `fdallanoce.com`: make the `hreflang` and `canonical` URLs absolute —
       Google ignores relative `hreflang`
 
 ## Conventions and gotchas

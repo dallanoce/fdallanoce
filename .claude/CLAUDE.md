@@ -50,6 +50,7 @@ reasoning when it is not obvious.
 ├── 404.html                       error page, deduce la lingua dall'URL sbagliato
 ├── _template.it.html              starting point for a new Italian page
 ├── _template.en.html              …and its English twin
+├── .assetsignore                  what the Cloudflare deploy must NOT publish (see Deployment)
 ├── it/                            albero italiano
 │   ├── index.html
 │   ├── cv/index.html
@@ -65,6 +66,7 @@ reasoning when it is not obvious.
 ├── stile/index.html               style guide, noindex, Italian only, not in the nav
 └── assets/
     ├── css/style.css              the entire stylesheet
+    ├── data/                      static files a tool fetches (nanoGPT's Shakespeare excerpt)
     └── js/
         ├── tema.js                light/dark theme; loaded first, before i18n.js
         ├── i18n.js                page language + JS strings; loaded before layout.js
@@ -324,7 +326,7 @@ Written down so future changes do not drift.
   serve someone who matches no language, and the answer is always English. It is
   not a copy-paste mistake.
 - **The `hreflang` and `canonical` URLs are root-relative** (`/en/cv/`), because
-  the custom domain has not been chosen. The switcher works fine with these.
+  they were written before the domain existed. The switcher works fine with these.
   Google, however, wants fully-qualified `hreflang` URLs — see the TODOs.
 - **Changing language navigates.** The two languages are two documents, so the
   switcher does a real page load. There is no partial state to reason about.
@@ -369,14 +371,63 @@ Written down so future changes do not drift.
   and keeps its literal name in both languages. Saving the displayed name instead
   would give anyone who switches language a half-translated shopping list. The
   same applies to category keys (`carne`, not `Carne`).
+- **`nanogpt.js` keeps nanoGPT's names, in English, on purpose.** Sections 0–5
+  (model, hand-written backward pass, training, sampling) use Karpathy's exact
+  identifiers — `tok_emb`, `c_attn`, `att`, `get_lr`, `idx_cond` — because the
+  page exists to be read next to `model.py`. Do not translate them; the
+  interface code in section 6 follows the usual Italian naming. The same goes
+  for the page text: code names are never translated, in either tree.
+- **The nanoGPT listings are pinned to commit `3adf61e`.** They are verbatim
+  quotes, and `data-riga` on each line is that commit's real line number. Each
+  attention step names the lines it highlights in `data-righe`, in both pages:
+  if a listing is ever re-quoted from a newer commit, those attributes must
+  follow. Inside the `<pre>`, lines are joined with `</span⏎><span` — a
+  newline between two spans would be text, and render as an empty line.
+- **Code names inside uppercase labels need `.ident`.** `.lab__label`,
+  `.stat__key` and table headers are uppercased by CSS, which turns
+  `learning_rate` into `LEARNING_RATE` and `μ` into `M`. Put `.ident` on the
+  label if it is all code, or on a span inside it. In `nanogpt.js`, the
+  `tessera()` keys mark code with backticks for the same reason.
+- **nanoGPT's drawings are built from a few primitives** in section 6 of
+  `nanogpt.js`: `matrice()` (one tensor, with optional rulers, cuts and
+  broadcast copies), `prodotto()` (the row × column layout of a product),
+  `pila()` (a `(B, nh, …)` tensor as a deck of cards), and `op()` with
+  `tappa()` / `passaggio()` (the operation pill and the top-to-bottom flow).
+  `matrice()` gives every cell an explicit grid row and column and makes each
+  row exactly one cell tall: that is what keeps the left factor's rows level
+  with the result's in a product. So in a product all matrices share one
+  `dimensione`, and neither of the two side by side may have column headers
+  or bands. The drawings only read `forward()`'s cache, never compute model
+  maths of their own. Each clickable product keeps its selected cell in
+  `STATO.scelte`, and `conFocus()` puts the keyboard focus back on the clicked
+  cell after the redraw. The four operation kinds' labels (`TIPI_OP`) are also
+  written by hand in both pages' reading key and in `/stile/`: change all three.
+- **nanoGPT's training fetches `/assets/data/shakespeare.txt`.** It is a static
+  file on the same origin, downloaded only when the visitor presses Train;
+  nothing the visitor types is sent anywhere, so the client-side promise on the
+  tools index still holds.
 
 ## Deployment
 
-Cloudflare Pages, connected to this repo. Build command: **empty**. Output
-directory: the repository root. Every push to the default branch publishes.
+A Cloudflare **Worker with static assets** (not Pages), connected to this repo
+through Workers Builds, served at `fdallanoce.com`. There is no wrangler config
+file in the repo: everything is set in the Cloudflare dashboard, under the
+Worker's Settings → Build.
 
-The custom domain has not been chosen yet, so the site currently lives on a
-`*.pages.dev` subdomain.
+- **Build command:** empty.
+- **Deploy command** (the `main` branch): `npx wrangler deploy`. With no
+  config, wrangler recognises a static site and uploads the repository root.
+- **Version command** (every other branch, for previews):
+  `npx wrangler versions upload --assets=. --name=fdallanoce --compatibility-date=2026-10-23`.
+  Unlike `deploy`, `versions upload` does not guess: without `--assets` it fails
+  with "Missing entry-point to Worker script or to assets directory".
+
+**Because the whole repository root is uploaded, `.assetsignore` decides what
+stays private.** It lists what is in the repo but is not the site — `README.md`,
+`docs/`, `.claude/`, `.git`, the two templates. Anything new at the root that is
+not a page (notes, scripts, config) has to be added there, or it is public at
+`fdallanoce.com/<name>`. It is the only Cloudflare-specific file in the repo,
+and inert on any other host.
 
 ## Before finishing a change
 
@@ -407,6 +458,6 @@ The custom domain has not been chosen yet, so the site currently lives on a
   files (currently commented out). Decide whether there is one PDF or one per
   language
 - Add a favicon
-- Choose and attach the custom domain. When it exists, make the `hreflang` and
-  `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative
+- The domain is `fdallanoce.com`. Make the `hreflang` and `canonical` URLs
+  absolute (`https://fdallanoce.com/it/cv/`): Google ignores relative
   `hreflang`. Nothing else needs to change — that is why paths are absolute
