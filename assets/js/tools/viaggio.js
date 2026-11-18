@@ -16,9 +16,9 @@
    per sapere dove sta un indirizzo e quale strada si fa servono dei
    servizi esterni, tutti di OpenStreetMap e tutti senza chiave:
 
-     - Nominatim       riceve il testo degli indirizzi e i punti cliccati
-     - OSRM (FOSSGIS)  riceve le coordinate di partenza e arrivo
-     - le tile         la cartina, un'immagine per ogni quadrato visibile
+     - Nominatim          riceve il testo degli indirizzi e i punti cliccati
+     - Valhalla (FOSSGIS) riceve le coordinate di partenza e arrivo
+     - le tile            la cartina, un'immagine per ogni quadrato visibile
 
    La pagina lo dice prima che si scriva qualcosa, e l'indice dei tool lo
    segnala. I conti invece si fanno qui, come negli altri tool, e prezzi,
@@ -49,7 +49,7 @@
    condizioni d'uso del server dei percorsi chiedono espressamente di non
    cablarli nel codice, perché possono cambiare. */
 const SERVIZI = {
-  percorso:  "https://routing.openstreetmap.de/routed-car/route/v1/driving/",
+  percorso:  "https://valhalla1.openstreetmap.de/route",
   indirizzi: "https://nominatim.openstreetmap.org/",
   tile:      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   crediti:   '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -120,36 +120,37 @@ const REGIMI = {
 };
 
 /* COME SI RICONOSCE UN'AUTOSTRADA
-   Il server dei percorsi di FOSSGIS non marca i tratti come "autostrada" o
-   "a pedaggio" (altri server OSRM lo fanno, e se ci sono quelle marcature
-   vengono usate). Dice però due cose affidabili per ogni tratto: la sigla
-   della strada ("A1", "A14;E45") e quanto tempo ci vuole a percorrerlo.
+   Il servizio dei percorsi (Valhalla) marca ogni manovra con due bandierine
+   prese dai dati di OpenStreetMap: "highway" se passa da un'autostrada e
+   "toll" se passa da un tratto a pagamento. Il pedaggio si conta su "toll"
+   e basta.
 
-   Un tratto è autostrada se ha una sigla da autostrada o se lo si percorre
-   in media almeno a SOGLIA_AUTOSTRADA_KMH: per i consumi conta la velocità,
-   e una superstrada a 110 all'ora consuma come un'autostrada. Sotto
-   SOGLIA_CITTA_KMH è città, in mezzo è extraurbano. */
-const SOGLIA_CITTA_KMH = 50;
+   Per i consumi invece conta la velocità più della categoria della strada:
+   una superstrada a 110 all'ora consuma come un'autostrada anche se non lo
+   è. Una manovra è autostrada se ha "highway" oppure se la si percorre in
+   media almeno a SOGLIA_AUTOSTRADA_KMH; sotto SOGLIA_CITTA_KMH è città, in
+   mezzo è extraurbano.
+
+   Perché 40 e non 50, che è il limite urbano: le soglie si confrontano con
+   la velocità MEDIA che stima Valhalla, e Valhalla è prudente. Su un
+   Milano–Bologna senza autostrada stima le provinciali e le statali (la
+   Paullese, la SS343) fra i 45 e i 50 all'ora: sono strade extraurbane.
+   La guida da città, con semafori e rotonde, sta sotto i 40. Con 50 quasi
+   tutto il percorso sarebbe finito fra le strade di città. */
+const SOGLIA_CITTA_KMH = 40;
 const SOGLIA_AUTOSTRADA_KMH = 90;
 
-/* Le sigle da autostrada: A in Italia, Francia, Germania, Austria, Svizzera
-   (anche scritte "A 7" o "A-7"), AP in Spagna, M nel Regno Unito. */
-const SIGLA_AUTOSTRADA = /^(A|AP|M)[\s-]?(\d+)/;
+/* EVITARE I PEDAGGI
+   Valhalla ha una manopola, use_tolls, da 0 a 1: quanto preferire o
+   evitare le strade a pagamento. 0.5 è il suo valore normale, 0 vuol dire
+   "evitale se possibile" — come Google Maps: se una strada senza pedaggi
+   non esiste (un'isola, certi valichi) ne usa il meno possibile invece di
+   non trovare niente, e la pagina lo dice.
 
-/* IL PEDAGGIO È UNA STIMA
-   Non sapendo quali tratti sono a pagamento, si contano a pedaggio i km su
-   strade con una sigla da autostrada, tolte le principali autostrade
-   italiane gratuite. La velocità qui non conta: una superstrada veloce non
-   si paga. L'elenco non è completo e fuori dall'Italia le regole sono altre
-   (vignette in Svizzera e Austria, niente pedaggio per le auto in Germania):
-   la pagina lo dice, e la tariffa si può cambiare o togliere dal conto. */
-const AUTOSTRADE_GRATUITE = [
-  "A2",    /* del Mediterraneo, Salerno–Reggio Calabria */
-  "A19",   /* Palermo–Catania */
-  "A29",   /* Palermo–Mazara del Vallo */
-  "A90",   /* Grande Raccordo Anulare di Roma */
-  "A91",   /* Roma–Fiumicino */
-];
+   Esiste anche un'opzione che li vieta del tutto (exclude_tolls). Non la
+   usiamo di proposito: in quei casi darebbe "nessun percorso", che è meno
+   utile di un percorso con pochi km a pagamento spiegati. */
+const USO_PEDAGGI = { normale: 0.5, evita: 0 };
 
 /* --- Consumi ------------------------------------------------------------------
    Quanto consuma ogni tipo di auto ogni 100 km, su ogni tipo di strada:
@@ -255,77 +256,86 @@ function num(v) {
   return isFinite(n) ? n : 0;
 }
 
-/* Le classi che il servizio dei percorsi attacca a un tratto ("motorway",
-   "toll", "ferry"…). Stanno sugli incroci del tratto: si raccolgono tutte. */
-function classiDelTratto(step) {
-  const classi = new Set();
-  (step.intersections || []).forEach(function (incrocio) {
-    (incrocio.classes || []).forEach(function (nome) { classi.add(nome); });
-  });
-  return classi;
-}
+/* La forma del percorso arriva compressa in una "polilinea codificata":
+   una stringa di caratteri invece di migliaia di coppie di numeri. È il
+   formato di Google, che Valhalla usa con 6 decimali invece di 5.
 
-/* La sigla da autostrada di un tratto, ridotta all'essenziale ("A 7" →
-   "A7", "A1-R5" → "A1"), oppure null. Una strada può avere più sigle
-   separate da ";": "A14;E45" è la A14 e anche la europea E45. */
-function siglaAutostrada(step) {
-  const sigle = String(step.ref || "").split(";");
-  for (const sigla of sigle) {
-    const trovata = SIGLA_AUTOSTRADA.exec(sigla.trim());
-    if (trovata) return trovata[1] + trovata[2];
+   Come si legge: ogni coordinata è scritta come differenza dalla
+   precedente, moltiplicata per un milione e spezzata in gruppi di 5 bit.
+   Ogni gruppo è un carattere (valore + 63, per restare fra i caratteri
+   stampabili); il bit 0x20 dice "il numero continua nel carattere dopo".
+   L'ultimo bit del numero ricomposto è il segno.
+
+   Restituisce [[lat, lon], …], che è l'ordine che vuole Leaflet. */
+function decodificaPolilinea(testo) {
+  const punti = [];
+  let indice = 0;
+  let lat = 0;
+  let lon = 0;
+
+  /* Legge un numero, cioè una differenza, a partire da indice */
+  function prossimo() {
+    let risultato = 0;
+    let spostamento = 0;
+    let gruppo;
+    do {
+      gruppo = testo.charCodeAt(indice) - 63;
+      indice += 1;
+      risultato |= (gruppo & 0x1f) << spostamento;
+      spostamento += 5;
+    } while (gruppo >= 0x20);
+    return (risultato & 1) ? ~(risultato >> 1) : (risultato >> 1);
   }
-  return null;
+
+  while (indice < testo.length) {
+    lat += prossimo();
+    lon += prossimo();
+    punti.push([lat / 1e6, lon / 1e6]);
+  }
+  return punti;
 }
 
-/* Che tipo di strada è un tratto. */
-function regimeDelTratto(step, classi, sigla) {
-  if (step.mode === "ferry" || classi.has("ferry")) return "traghetto";
+/* Che tipo di strada è una manovra. Il traghetto ha una bandierina sua
+   (e la manovra di imbarco ha il tipo 28): l'auto viaggia ma non consuma. */
+function regimeDellaManovra(m) {
+  if (m.ferry === true || m.type === 28) return "traghetto";
 
-  const kmh = step.duration > 0 ? step.distance / step.duration * 3.6 : 0;
-  if (classi.has("motorway") || sigla || kmh >= SOGLIA_AUTOSTRADA_KMH) return "autostrada";
+  const kmh = m.time > 0 ? m.length / (m.time / 3600) : 0;
+  if (m.highway === true || kmh >= SOGLIA_AUTOSTRADA_KMH) return "autostrada";
   return kmh < SOGLIA_CITTA_KMH ? "citta" : "extra";
-}
-
-/* Se un tratto si paga. Una marcatura esplicita del server vince; senza,
-   si stima dalla sigla (vedi AUTOSTRADE_GRATUITE). */
-function aPedaggio(classi, sigla, regime) {
-  if (regime === "traghetto") return false;
-  if (classi.has("toll")) return true;
-  return !!sigla && AUTOSTRADE_GRATUITE.indexOf(sigla) === -1;
 }
 
 /* La risposta del servizio dei percorsi ridotta a quello che serve:
    la linea da disegnare, la durata, e i tratti IN ORDINE di percorrenza —
    l'ordine conta per il plug-in, che va a batteria all'inizio.
+   Un tratto è una manovra di Valhalla: un pezzo di strada fra due svolte.
+
+   Il traghetto è marcato anche "toll", perché si paga; ma il biglietto non
+   è il pedaggio autostradale, e non entra nel conto del pedaggio.
+
    Restituisce null se un percorso non c'è. */
 function leggiPercorso(risposta) {
-  if (!risposta || risposta.code !== "Ok" || !risposta.routes || !risposta.routes.length) {
-    return null;
-  }
-  const rotta = risposta.routes[0];
-  const tratti = [];
+  const viaggio = risposta && risposta.trip;
+  if (!viaggio || viaggio.status !== 0 || !Array.isArray(viaggio.legs)) return null;
 
-  (rotta.legs || []).forEach(function (gamba) {
-    (gamba.steps || []).forEach(function (step) {
-      if (!(step.distance > 0)) return;   /* l'arrivo è un tratto lungo zero */
-      const classi = classiDelTratto(step);
-      const sigla = siglaAutostrada(step);
-      const regime = regimeDelTratto(step, classi, sigla);
+  const tratti = [];
+  let linea = [];
+
+  viaggio.legs.forEach(function (gamba) {
+    linea = linea.concat(decodificaPolilinea(String(gamba.shape || "")));
+    (gamba.maneuvers || []).forEach(function (m) {
+      if (!(m.length > 0)) return;   /* l'arrivo è una manovra lunga zero */
+      const regime = regimeDellaManovra(m);
       tratti.push({
-        km: step.distance / 1000,
+        km: num(m.length),
         regime: regime,
-        pedaggio: aPedaggio(classi, sigla, regime),
+        pedaggio: m.toll === true && regime !== "traghetto",
       });
     });
   });
 
-  /* Il servizio scrive le coordinate come [lon, lat], Leaflet le vuole
-     [lat, lon]. È l'errore classico di chi lavora con le mappe. */
-  const linea = rotta.geometry && Array.isArray(rotta.geometry.coordinates)
-    ? rotta.geometry.coordinates.map(function (p) { return [p[1], p[0]]; })
-    : [];
-
-  return { tratti: tratti, secondi: num(rotta.duration), linea: linea };
+  const secondi = viaggio.summary ? num(viaggio.summary.time) : 0;
+  return { tratti: tratti, secondi: secondi, linea: linea };
 }
 
 /* Quanti km per tipo di strada, quanti a pedaggio, quanti in tutto. */
@@ -493,6 +503,7 @@ function statoIniziale() {
     autonomiaPhev: AUTONOMIA_PHEV_PREDEFINITA,
     pedaggioTariffa: PEDAGGIO_PREDEFINITO,
     pedaggioIncluso: true,
+    evitaPedaggi: false,  /* cambia la strada, non solo il conto */
     tuaAuto: { attiva: false, alimentazione: "benzina", consumo: 0, forma: "per100" },
     partenza: null,    /* { etichetta, lat, lon } */
     arrivo: null,
@@ -546,6 +557,7 @@ function leggiViaggio() {
     if (v !== null && v >= 0) st[k] = v;
   });
   if (typeof letto.pedaggioIncluso === "boolean") st.pedaggioIncluso = letto.pedaggioIncluso;
+  if (typeof letto.evitaPedaggi === "boolean") st.evitaPedaggi = letto.evitaPedaggi;
 
   const tua = letto.tuaAuto;
   if (tua && typeof tua === "object") {
@@ -780,8 +792,9 @@ async function chiedi(url) {
       en: "The service has had too many requests: try again in a few seconds.",
     });
   }
-  /* Il server dei percorsi risponde 400 anche quando non trova una strada:
-     il corpo dice perché, e leggiPercorso() lo sa interpretare. */
+  /* Il server dei percorsi risponde 400 anche quando non trova una strada
+     (error_code 442): il corpo non ha un percorso, e leggiPercorso() lo
+     trasforma nel messaggio "non trovo una strada". */
   if (!risposta.ok && risposta.status !== 400) {
     throw problema({
       it: "Il servizio ha risposto con un errore (" + risposta.status + "): riprova più tardi.",
@@ -809,10 +822,23 @@ function urlIndirizzo(lat, lon) {
     "&accept-language=" + I18N.lingua + "&lat=" + lat + "&lon=" + lon;
 }
 
-function urlPercorso(a, b) {
-  const punto = function (p) { return p.lon.toFixed(6) + "," + p.lat.toFixed(6); };
-  return SERVIZI.percorso + punto(a) + ";" + punto(b) +
-    "?overview=full&geometries=geojson&steps=true";
+/* Valhalla vuole la richiesta come JSON dentro l'indirizzo. "maneuvers"
+   chiede l'elenco delle manovre senza il testo delle istruzioni ("svolta a
+   destra…"), che qui non serve e allungherebbe la risposta. */
+function urlPercorso(a, b, evitaPedaggi) {
+  const richiesta = {
+    locations: [
+      { lat: Number(a.lat.toFixed(6)), lon: Number(a.lon.toFixed(6)) },
+      { lat: Number(b.lat.toFixed(6)), lon: Number(b.lon.toFixed(6)) },
+    ],
+    costing: "auto",
+    costing_options: {
+      auto: { use_tolls: evitaPedaggi ? USO_PEDAGGI.evita : USO_PEDAGGI.normale },
+    },
+    units: "kilometers",
+    directions_type: "maneuvers",
+  };
+  return SERVIZI.percorso + "?json=" + encodeURIComponent(JSON.stringify(richiesta));
 }
 
 
@@ -904,13 +930,13 @@ function disegnaLinea() {
 
 /* Cambiare un punto rende vecchio il percorso: i costi sparirebbero
    comunque al prossimo Calcola, meglio non lasciarli lì a mentire. */
-function invalidaPercorso() {
+function invalidaPercorso(motivo) {
   const cera = !!percorso;
   percorso = null;
   if (stratoPercorso) stratoPercorso.clearLayers();
   $("risultati").hidden = true;
   if (cera) {
-    messaggioStato({
+    messaggioStato(motivo || {
       it: "I punti sono cambiati: premi Calcola per il nuovo percorso.",
       en: "The points have changed: press Calculate for the new route.",
     });
@@ -1044,7 +1070,7 @@ async function calcolaPercorso() {
     }
 
     messaggioStato({ it: "Calcolo il percorso…", en: "Working out the route…" });
-    const nuovo = leggiPercorso(await chiedi(urlPercorso(stato.partenza, stato.arrivo)));
+    const nuovo = leggiPercorso(await chiedi(urlPercorso(stato.partenza, stato.arrivo, stato.evitaPedaggi)));
     if (!nuovo) {
       throw problema({
         it: "Non trovo una strada in auto fra questi due punti.",
@@ -1161,6 +1187,7 @@ function riempiCampiFissi() {
   $("autonomia-phev").value = perCampo(stato.autonomiaPhev);
   $("pedaggio-tariffa").value = perCampo(stato.pedaggioTariffa);
   $("pedaggio-incluso").checked = stato.pedaggioIncluso;
+  $("evita-pedaggi").checked = stato.evitaPedaggi;
   $("partenza-testo").value = stato.partenza ? stato.partenza.etichetta : "";
   $("arrivo-testo").value = stato.arrivo ? stato.arrivo.etichetta : "";
   costruisciTuaAuto();
@@ -1203,7 +1230,7 @@ function aggiorna() {
   }
   scrivi("tot-pedaggio", euro.format(r.pedaggio));
   scrivi("nota-pedaggio",
-    km(r.riepilogo.pedaggio) + " " + I18N.t({ it: "a pedaggio, stimati", en: "tolled, estimated" }) +
+    km(r.riepilogo.pedaggio) + " " + I18N.t({ it: "a pedaggio", en: "tolled" }) +
     (r.pedaggioIncluso ? "" : " · " + I18N.t({ it: "fuori dai costi", en: "not in the costs" })));
 
   disegnaRegimi(r.riepilogo);
@@ -1301,6 +1328,14 @@ function disegnaAvvisi(r) {
           ". The cells that need it are left empty.",
     }));
   }
+  if (stato.evitaPedaggi && r.riepilogo.pedaggio > 0) {
+    voci.push(I18N.t({
+      it: "Non c'è una strada del tutto senza pedaggi: questo percorso ne usa comunque " +
+          km(r.riepilogo.pedaggio) + ", il meno possibile.",
+      en: "There is no road without tolls at all: this route still uses " +
+          km(r.riepilogo.pedaggio) + " of them, as few as possible.",
+    }));
+  }
   if (r.riepilogo.traghetto > 0) {
     voci.push(I18N.t({
       it: "Il percorso comprende " + km(r.riepilogo.traghetto) + " di traghetto: non consumano carburante, " +
@@ -1354,6 +1389,15 @@ document.addEventListener("input", function (e) {
 
   } else if (campo === "pedaggioIncluso") {
     stato.pedaggioIncluso = valore;
+
+  } else if (campo === "evitaPedaggi") {
+    /* Questo cambia la strada, non solo il conto: il percorso vecchio non
+       vale più e serve un nuovo Calcola. */
+    stato.evitaPedaggi = valore;
+    invalidaPercorso({
+      it: "La scelta sui pedaggi cambia la strada: premi Calcola per il nuovo percorso.",
+      en: "The toll choice changes the road: press Calculate for the new route.",
+    });
 
   } else if (campo === "autonomiaPhev" || campo === "pedaggioTariffa") {
     stato[campo] = Math.max(0, num(valore));

@@ -65,7 +65,7 @@ Then open `http://localhost:8000`. It will redirect to `/it/` or `/en/` dependin
 on your browser's language.
 
 Note that `http.server` does not serve `404.html` for unknown paths — it shows its
-own error page. Cloudflare Pages does. Open `/404.html` directly to look at it.
+own error page. Open `/404.html` directly to look at it.
 
 ## How the two languages work
 
@@ -136,17 +136,21 @@ right year. The right-hand column holds the destination domain (`medium.com`,
 The title is the real published title and is **identical in both files**. Only the
 month is translated.
 
-## Deploying to Cloudflare Pages
+## Deploying
 
-1. Push this folder to a GitHub repository.
-2. In Cloudflare: **Workers & Pages → Create → Pages → Connect to Git**.
-3. Build command: leave **empty**. Output directory: `/` (the repository root).
-4. Every push publishes automatically — including the weekly commit of the fuel
-   price workflow, which only commits when the prices changed.
+The site is a Cloudflare Worker named `fdallanoce`, built by **Workers Builds**
+from this repository.
 
-The site goes live on `project-name.pages.dev`. When you have a custom domain,
-attach it under **Custom domains** — no code changes needed, which is the reason
-paths are absolute.
+- A push to `main` publishes the live site — including the weekly commit of the
+  fuel price workflow, which only commits when the prices changed.
+- A push to any other branch builds a **preview** and leaves the live site alone.
+  It is reachable at `https://<branch>-fdallanoce.dallanoce-fd.workers.dev`, with
+  the `/` in the branch name turned into `-`.
+- Each build shows up on its commit in GitHub as the check
+  **"Workers Builds: fdallanoce"**, with the preview URLs in its summary.
+
+When you have a custom domain, attach it to the Worker — no code changes needed,
+which is the reason paths are absolute.
 
 ## Before going live
 

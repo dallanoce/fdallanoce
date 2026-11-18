@@ -44,7 +44,7 @@
       The sums are done in your browser, but to find addresses and roads this
       tool uses three OpenStreetMap services: <strong>Nominatim</strong>
       receives the addresses you type and the points you pick on the map, the
-      <strong>FOSSGIS routing server</strong> receives the start and
+      <strong>FOSSGIS Valhalla routing server</strong> receives the start and
       destination coordinates, and the <strong>map</strong> itself comes from
       openstreetmap.org. Prices, choices and addresses are saved on this
       computer only.
@@ -126,11 +126,10 @@
       </div>
       <p class="field__hint">
         The plug-in starts with a full battery and switches to petrol when it
-        runs out. The toll is an estimate designed for Italy: an average rate
-        for a class A car multiplied by the motorway km on the route, leaving
-        out the main toll-free motorways (A2, A19, A29, the Rome ring road,
-        Rome–Fiumicino). Other countries have other rules: there, untick the
-        box below.
+        runs out. The tolled km are the ones OpenStreetMap marks as paid; the
+        amount is an estimate designed for Italy, an average rate for a class A
+        car. Other countries have other rules (vignettes, toll-free
+        motorways): there, untick the box below.
       </p>
 
       <label class="field__label">
@@ -218,6 +217,16 @@
         <p class="field__hint">
           Type an address and press Enter, or click on the map. The markers can
           be dragged.
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field__label">
+          <input class="field__check" type="checkbox" id="evita-pedaggi" data-campo="evitaPedaggi">
+          <span>Avoid tolls</span>
+        </label>
+        <p class="field__hint">
+          If there is no road without tolls, the route uses as few as possible.
         </p>
       </div>
 

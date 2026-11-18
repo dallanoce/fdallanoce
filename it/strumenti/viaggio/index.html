@@ -48,7 +48,7 @@
       I conti si fanno nel browser, ma per trovare gli indirizzi e la strada
       questo tool usa tre servizi di OpenStreetMap: <strong>Nominatim</strong>
       riceve gli indirizzi che scrivi e i punti che scegli sulla mappa, il
-      <strong>server dei percorsi FOSSGIS</strong> riceve le coordinate di
+      <strong>server dei percorsi Valhalla di FOSSGIS</strong> riceve le coordinate di
       partenza e arrivo, e la <strong>cartina</strong> arriva da
       openstreetmap.org. Prezzi, scelte e indirizzi restano salvati solo su
       questo computer.
@@ -130,11 +130,11 @@
       </div>
       <p class="field__hint">
         Il plug-in parte con la batteria carica e passa alla benzina quando è
-        finita. Il pedaggio è una stima pensata per l'Italia: una tariffa
-        media per un'auto di classe A moltiplicata per i km di autostrada del
-        percorso, tolte le principali autostrade gratuite (A2, A19, A29, GRA,
-        Roma–Fiumicino). All'estero le regole sono altre: lì conviene
-        togliere la spunta qui sotto.
+        finita. I km a pedaggio sono quelli che OpenStreetMap segna a
+        pagamento; l'importo è una stima pensata per l'Italia, una tariffa
+        media per un'auto di classe A. All'estero le regole sono altre
+        (vignette, autostrade gratuite): lì conviene togliere la spunta qui
+        sotto.
       </p>
 
       <label class="field__label">
@@ -222,6 +222,16 @@
         <p class="field__hint">
           Scrivi un indirizzo e premi Invio, oppure clicca sulla mappa. I
           segnaposto si possono trascinare.
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field__label">
+          <input class="field__check" type="checkbox" id="evita-pedaggi" data-campo="evitaPedaggi">
+          <span>Evita i pedaggi</span>
+        </label>
+        <p class="field__hint">
+          Se non c'è una strada senza pedaggi, il percorso ne usa il meno possibile.
         </p>
       </div>
 

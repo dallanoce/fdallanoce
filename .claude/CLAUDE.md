@@ -45,7 +45,7 @@ These are deliberate decisions by the owner. Do not change them without asking f
   user input anywhere. This is stated to visitors on the tools index; keep it true.
   **One declared exception:** the trip cost tool (`/it/strumenti/viaggio/`,
   `/en/tools/trip-cost/`) sends the addresses typed and the points clicked to
-  Nominatim, the start and end coordinates to the FOSSGIS OSRM server, and loads
+  Nominatim, the start and end coordinates to the FOSSGIS Valhalla server, and loads
   map tiles from openstreetmap.org. The tools index says "except where stated" and
   names it; the tool page lists each service and what it receives. Any other tool
   that needs to send data anywhere needs the owner's go-ahead first, then the
@@ -356,8 +356,9 @@ Written down so future changes do not drift.
   work, and neither does the router at `/`. Local development needs
   `python3 -m http.server 8000`.
 - **`python3 -m http.server` does not serve `404.html`.** It returns its own error
-  page, so the 404 cannot be tested by browsing to a bad URL locally. Cloudflare
-  Pages does serve it. To test it locally, open `/404.html` directly — note that
+  page, so the 404 cannot be tested by browsing to a bad URL locally. Whether the
+  live site serves it for unknown paths depends on the Worker's static-asset
+  settings, and has not been checked (see Deployment). To test it locally, open `/404.html` directly — note that
   it will pick its language from the browser, since the path has no `/it/` or
   `/en/` prefix to read.
 - **The print palette needs both selectors.** `@media print` redefines the
@@ -406,12 +407,25 @@ Written down so future changes do not drift.
   256 px tiles: change it if the tile service changes. `isolation: isolate` on
   `.mappa` keeps Leaflet's z-indexes (up to 1000) from climbing over `.toast`;
   it is not related to the seams.
-- **The FOSSGIS OSRM server does not mark motorways or tolls.** Its steps carry
-  no `classes`. Motorway is detected from the road `ref` (`A1`, `A14;E45`) or an
-  average speed ≥ 90 km/h; tolls are estimated as motorway km by `ref`, minus the
-  free Italian motorways in `AUTOSTRADE_GRATUITE`. Both are in `viaggio.js`'s
-  PARAMETERS and the page calls the toll an estimate. If `classes` ever appear
-  (another OSRM server), they take precedence.
+- **The route comes from FOSSGIS Valhalla, not OSRM.** The FOSSGIS OSRM server
+  was tried first and dropped: it marks neither motorways nor tolls, and rejects
+  `exclude=toll`. Valhalla marks every maneuver with `toll` and `highway` from
+  OpenStreetMap, so the tolled km are real data and only the euro amount (an
+  average rate) is an estimate. The ferry maneuver is marked `toll` too; it is
+  counted as ferry, not as toll.
+- **"Evita i pedaggi" means `use_tolls: 0`, not `exclude_tolls`.** It is "avoid if
+  possible", like Google Maps: where no toll-free road exists the route uses as
+  few tolled km as it can and the page says how many. `exclude_tolls` would
+  return no route at all instead. Changing the box changes the road, so it
+  clears the result and asks for a new Calcola.
+- **Valhalla's request is JSON inside the URL** (`/route?json=…`), the route
+  shape is a polyline with 6 decimals (`decodificaPolilinea()`), and "no road
+  found" is an HTTP 400 with `error_code` 442 — `chiedi()` lets 400 through on
+  purpose so `leggiPercorso()` can turn it into a message.
+- **City vs out-of-town is decided by average speed, and the city threshold is
+  40 km/h, not 50.** Valhalla's speeds are cautious: on a toll-free
+  Milan–Bologna it puts provincial and state roads at 45–50 km/h. With 50, two
+  thirds of that route counted as city driving.
 - **Nominatim forbids autocomplete** and both services allow one request per
   second. Searching happens only on Enter, "Cerca" or "Calcola", and every
   request goes through `chiedi()`, which queues calls per host.
@@ -423,11 +437,19 @@ Written down so future changes do not drift.
 
 ## Deployment
 
-Cloudflare Pages, connected to this repo. Build command: **empty**. Output
-directory: the repository root. Every push to the default branch publishes.
+The site is a **Cloudflare Worker named `fdallanoce`, built by Workers Builds**
+from this repository — not a Cloudflare Pages project, as earlier versions of
+this file said. Every push to the default branch publishes.
 
-The custom domain has not been chosen yet, so the site currently lives on a
-`*.pages.dev` subdomain.
+**Every other branch gets a preview build** that does not touch the live site.
+Its result appears on the commit in GitHub as the check **"Workers Builds:
+fdallanoce"**, whose summary carries two URLs:
+
+- `https://<branch>-fdallanoce.dallanoce-fd.workers.dev` — follows the branch
+  (the name with `/` turned into `-`, e.g. `claude-vibrant-turing-vcc2y3-…`);
+- `https://<version>-fdallanoce.dallanoce-fd.workers.dev` — that one build.
+
+The custom domain has not been chosen yet.
 
 The fuel price workflow commits to the default branch, so each of its commits
 is also a deploy. It only commits when the prices changed. GitHub suspends
@@ -470,9 +492,6 @@ updating, re-enable it from the Actions tab.
   MIMIT server reset the connection during the TLS handshake, which suggests it
   may refuse some cloud IP ranges; GitHub's runners might be among them. If so,
   a fallback source is the EU Weekly Oil Bulletin (petrol, diesel, LPG; no CNG)
-- The toll estimate could become exact with the FOSSGIS Valhalla server, whose
-  maneuvers carry `toll` and `highway` flags. It was not adopted because it could
-  not be tested from the development container
 - Choose and attach the custom domain. When it exists, make the `hreflang` and
   `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative
   `hreflang`. Nothing else needs to change — that is why paths are absolute
