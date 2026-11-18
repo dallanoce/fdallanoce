@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trip cost — Francesco Dallanoce</title>
+  <meta name="description" content="What it costs to drive from A to B, compared across car types and fuels: petrol, diesel, LPG, CNG, hybrid, plug-in, electric.">
+
+  <link rel="canonical" href="/en/tools/trip-cost/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/viaggio/">
+  <link rel="alternate" hreflang="en" href="/en/tools/trip-cost/">
+  <link rel="alternate" hreflang="x-default" href="/en/tools/trip-cost/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <!-- Il foglio di Leaflet va PRIMA di style.css: così le regole del sito
+       (sezione 12, Mappa) vincono a parità di specificità. -->
+  <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<!--
+  Gli id dei campi sono in italiano anche qui, ed è voluto: un solo file
+  JavaScript, viaggio.js, serve tutti e due gli alberi. Vedi la pagina
+  gemella /it/strumenti/viaggio/.
+-->
+<main id="contenuto" class="wrap wrap--wide page">
+
+  <h1 class="title title--page">Trip cost</h1>
+  <p class="lede">
+    What it costs to drive from A to B, side by side: the same trip in a
+    city car or an SUV, on petrol or electric.
+  </p>
+
+  <div class="note">
+    <p>
+      The sums are done in your browser, but to find addresses and roads this
+      tool uses three OpenStreetMap services: <strong>Nominatim</strong>
+      receives the addresses you type and the points you pick on the map, the
+      <strong>FOSSGIS routing server</strong> receives the start and
+      destination coordinates, and the <strong>map</strong> itself comes from
+      openstreetmap.org. Prices, choices and addresses are saved on this
+      computer only.
+    </p>
+    <p>
+      Consumption and tolls are reasonable estimates, not type-approval
+      figures: they are there to compare, not to count every cent.
+    </p>
+  </div>
+
+
+  <p class="eyebrow">Settings</p>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">1</span>
+      <span class="panel__title">Fuel prices</span>
+      <span class="panel__hint">They update themselves every week; you can always type your own.</span>
+    </summary>
+    <div class="panel__body">
+      <p class="muted">
+        Petrol, diesel, LPG and CNG are the national median of the prices
+        Italian filling stations report to the Ministry of Enterprises
+        (<span lang="it">MIMIT</span>), self-service for petrol and diesel.
+        Electricity has no weekly official source: the starting value is a
+        rough one, and it varies a lot between charging at home (about
+        €0.30/kWh) and fast public chargers (€0.60–0.80/kWh).
+      </p>
+
+      <div class="table-wrap">
+        <table class="table" id="tab-prezzi">
+          <thead>
+            <tr>
+              <th>Fuel</th>
+              <th class="table__num">Price</th>
+              <th>Unit</th>
+              <th>Source</th>
+              <th><span class="visually-hidden">Reset</span></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">2</span>
+      <span class="panel__title">What to compare</span>
+      <span class="panel__hint">The cost table crosses every car type with every fuel that is switched on.</span>
+    </summary>
+    <div class="panel__body">
+      <div class="field">
+        <span class="field__label" id="etichetta-tipi">Car type</span>
+        <div class="chips" id="scelta-tipi" role="group" aria-labelledby="etichetta-tipi"></div>
+        <p class="field__hint">
+          City car: Panda, Yaris. Compact: Golf, 308. Saloon: Passat,
+          3 Series. SUV: Tiguan, Sportage. MPV: Touran, Scénic.
+        </p>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="etichetta-alimentazioni">Fuel</span>
+        <div class="chips" id="scelta-alimentazioni" role="group" aria-labelledby="etichetta-alimentazioni"></div>
+      </div>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="autonomia-phev">Plug-in: km on battery</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="autonomia-phev" data-campo="autonomiaPhev">
+        </div>
+        <div class="field">
+          <label class="field__label" for="pedaggio-tariffa">Tolls: € per km</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="pedaggio-tariffa" data-campo="pedaggioTariffa">
+        </div>
+      </div>
+      <p class="field__hint">
+        The plug-in starts with a full battery and switches to petrol when it
+        runs out. The toll is an estimate designed for Italy: an average rate
+        for a class A car multiplied by the motorway km on the route, leaving
+        out the main toll-free motorways (A2, A19, A29, the Rome ring road,
+        Rome–Fiumicino). Other countries have other rules: there, untick the
+        box below.
+      </p>
+
+      <label class="field__label">
+        <input class="field__check" type="checkbox" id="pedaggio-incluso" data-campo="pedaggioIncluso">
+        <span>Include tolls in the costs in the table</span>
+      </label>
+    </div>
+  </details>
+
+  <details class="panel no-print">
+    <summary class="panel__head">
+      <span class="panel__step">3</span>
+      <span class="panel__title">Your car</span>
+      <span class="panel__hint">The consumption your trip computer shows, as an extra row in the comparison.</span>
+    </summary>
+    <div class="panel__body">
+      <label class="field__label">
+        <input class="field__check" type="checkbox" id="tua-attiva" data-campo="tuaAuto.attiva">
+        <span>Add my car to the comparison</span>
+      </label>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="tua-alimentazione">Fuel</label>
+          <select class="field__select field__select--compact" id="tua-alimentazione"
+                  data-campo="tuaAuto.alimentazione"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="tua-consumo">Average consumption</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="tua-consumo" data-campo="tuaAuto.consumo" placeholder="6.5">
+        </div>
+        <div class="field">
+          <label class="field__label" for="tua-forma">Measured in</label>
+          <select class="field__select field__select--compact" id="tua-forma"
+                  data-campo="tuaAuto.forma"></select>
+        </div>
+      </div>
+      <p class="field__hint">
+        One figure, the same on every road: it is the average you measured
+        yourself, so it already accounts for the way you drive.
+      </p>
+    </div>
+  </details>
+
+
+  <p class="eyebrow">Route</p>
+
+  <div class="split split--mappa">
+    <div class="form">
+      <div class="field">
+        <div class="form form--inline">
+          <div class="field">
+            <label class="field__label" for="partenza-testo">A · Start</label>
+            <input class="field__input" type="text" id="partenza-testo"
+                   placeholder="Milan, Piazza del Duomo" autocomplete="off">
+          </div>
+          <button class="btn btn--ghost" type="button" data-azione="cerca" data-punto="partenza">Search</button>
+        </div>
+        <select class="field__select field__select--compact" id="partenza-alternative"
+                aria-label="Other places with this name" hidden></select>
+      </div>
+
+      <div class="field">
+        <div class="form form--inline">
+          <div class="field">
+            <label class="field__label" for="arrivo-testo">B · Destination</label>
+            <input class="field__input" type="text" id="arrivo-testo"
+                   placeholder="Bologna, Piazza Maggiore" autocomplete="off">
+          </div>
+          <button class="btn btn--ghost" type="button" data-azione="cerca" data-punto="arrivo">Search</button>
+        </div>
+        <select class="field__select field__select--compact" id="arrivo-alternative"
+                aria-label="Other places with this name" hidden></select>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="etichetta-clic">A click on the map moves</span>
+        <div class="chips" role="group" aria-labelledby="etichetta-clic">
+          <button class="chip" type="button" id="clic-partenza" data-azione="bersaglio"
+                  data-punto="partenza" aria-pressed="true">A · start</button>
+          <button class="chip" type="button" id="clic-arrivo" data-azione="bersaglio"
+                  data-punto="arrivo" aria-pressed="false">B · destination</button>
+        </div>
+        <p class="field__hint">
+          Type an address and press Enter, or click on the map. The markers can
+          be dragged.
+        </p>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="button" id="calcola" data-azione="calcola">Calculate</button>
+        <button class="btn btn--ghost" type="button" data-azione="inverti">⇅ Swap A and B</button>
+      </div>
+
+      <p class="field__hint" id="stato-percorso" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="mappa no-print" id="mappa"></div>
+  </div>
+
+
+  <div id="risultati" hidden>
+
+    <p class="eyebrow">Trip costs</p>
+
+    <div class="stack">
+      <div class="stats">
+        <div class="stat stat--hero">
+          <span class="stat__key">Distance</span>
+          <span class="stat__value" id="tot-distanza">—</span>
+        </div>
+        <div class="stat stat--hero">
+          <span class="stat__key">Cheapest</span>
+          <span class="stat__value" id="tot-migliore">—</span>
+          <span class="stat__note" id="nota-migliore"></span>
+        </div>
+        <div class="stat">
+          <span class="stat__key">Driving time</span>
+          <span class="stat__value" id="tot-durata">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat__key">Estimated tolls</span>
+          <span class="stat__value" id="tot-pedaggio">—</span>
+          <span class="stat__note" id="nota-pedaggio"></span>
+        </div>
+      </div>
+
+      <div class="bars" id="barre-regimi"></div>
+
+      <div class="table-wrap">
+        <table class="table" id="tab-confronto">
+          <thead>
+            <tr>
+              <th>Car</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <div class="note" id="avvisi-viaggio" hidden></div>
+
+      <p class="muted">
+        Each cell is the cost of a one-way trip, with the fuel it needs
+        underneath. Highlighted: the cheapest fuel for each car type and, on a
+        green background, the cheapest overall. Consumption changes with the
+        road: an electric car spends little in town and more on the motorway,
+        a diesel the other way round.
+      </p>
+    </div>
+
+  </div>
+
+</main>
+
+<site-footer></site-footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Leaflet prima del tool: viaggio.js usa la variabile L che definisce. -->
+<script src="/assets/vendor/leaflet/leaflet.js"></script>
+<script src="/assets/js/tools/viaggio.js"></script>
+</body>
+</html>

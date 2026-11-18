@@ -1,8 +1,13 @@
 # Personal website
 
 A static site with no build step: hand-written HTML, CSS and vanilla JavaScript,
-served exactly as it sits in the repo. No dependencies, no framework, no lock-in
-to any host.
+served exactly as it sits in the repo. No framework, no lock-in to any host, and
+one dependency only: Leaflet, copied into the repo and used by the trip cost tool
+for its map.
+
+Every tool runs in the browser and sends nothing anywhere, with one declared
+exception: the trip cost tool asks OpenStreetMap services for addresses, routes
+and map tiles. Its page and the tool index say so.
 
 The site is bilingual, Italian and English, built as two parallel trees under
 `/it/` and `/en/`. Italian is the source language — pages are drafted in Italian
@@ -23,21 +28,28 @@ known, and what `x-default` points at.
 │   ├── cv/
 │   ├── articoli/                  links out to published articles
 │   └── strumenti/                 tool index
-│       └── grigliata/            one tool = one folder
+│       ├── grigliata/            one tool = one folder
+│       └── viaggio/              trip cost: map, route, cost comparison
 ├── en/                            English tree, same shape
 │   ├── index.html
 │   ├── cv/
 │   ├── articles/
 │   └── tools/
-│       └── barbecue/
+│       ├── barbecue/
+│       └── trip-cost/
 ├── stile/                         style guide (noindex, Italian only, not in the nav)
-└── assets/                        shared by both trees, never duplicated
-    ├── css/style.css              the entire stylesheet
-    └── js/
-        ├── tema.js                light/dark theme, loaded first
-        ├── i18n.js                page language and JS strings
-        ├── layout.js              header, footer, language switcher, theme switch
-        └── tools/                 per-tool logic
+├── assets/                        shared by both trees, never duplicated
+│   ├── css/style.css              the entire stylesheet
+│   ├── data/carburanti.json       fuel prices, written weekly by a GitHub Action
+│   ├── vendor/leaflet/            Leaflet 1.9.4, the only third-party code
+│   └── js/
+│       ├── tema.js                light/dark theme, loaded first
+│       ├── i18n.js                page language and JS strings
+│       ├── layout.js              header, footer, language switcher, theme switch
+│       └── tools/                 per-tool logic
+└── .github/
+    ├── workflows/prezzi-carburanti.yml   weekly fuel price update
+    └── scripts/prezzi_carburanti.py      MIMIT CSV → carburanti.json, stdlib only
 ```
 
 ## Running it locally
@@ -129,7 +141,8 @@ month is translated.
 1. Push this folder to a GitHub repository.
 2. In Cloudflare: **Workers & Pages → Create → Pages → Connect to Git**.
 3. Build command: leave **empty**. Output directory: `/` (the repository root).
-4. Every push publishes automatically.
+4. Every push publishes automatically — including the weekly commit of the fuel
+   price workflow, which only commits when the prices changed.
 
 The site goes live on `project-name.pages.dev`. When you have a custom domain,
 attach it under **Custom domains** — no code changes needed, which is the reason

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Costo del viaggio — Francesco Dallanoce</title>
+  <meta name="description" content="Quanto costa andare da A a B in auto, confrontando tipi di auto e alimentazioni: benzina, diesel, GPL, metano, ibrida, plug-in, elettrica.">
+
+  <link rel="canonical" href="/it/strumenti/viaggio/">
+  <link rel="alternate" hreflang="it" href="/it/strumenti/viaggio/">
+  <link rel="alternate" hreflang="en" href="/en/tools/trip-cost/">
+  <link rel="alternate" hreflang="x-default" href="/en/tools/trip-cost/">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <!-- Il foglio di Leaflet va PRIMA di style.css: così le regole del sito
+       (sezione 12, Mappa) vincono a parità di specificità. -->
+  <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <script src="/assets/js/tema.js"></script>
+  <script src="/assets/js/i18n.js"></script>
+  <script src="/assets/js/layout.js"></script>
+</head>
+<body>
+
+<site-header></site-header>
+
+<!--
+  Gli id dei campi (mappa, tab-confronto, partenza-testo…) sono in italiano
+  anche nella pagina gemella inglese, ed è voluto: un solo file JavaScript,
+  viaggio.js, serve tutti e due gli alberi.
+
+  Le righe delle tabelle e i chip li costruisce viaggio.js: qui ci sono solo
+  le intestazioni e le etichette, che sono testo della pagina e quindi vanno
+  scritte nella lingua della pagina.
+-->
+<main id="contenuto" class="wrap wrap--wide page">
+
+  <h1 class="title title--page">Costo del viaggio</h1>
+  <p class="lede">
+    Quanto costa andare da A a B in auto, messo a confronto: lo stesso
+    viaggio in utilitaria o in SUV, a benzina o in elettrico.
+  </p>
+
+  <div class="note">
+    <p>
+      I conti si fanno nel browser, ma per trovare gli indirizzi e la strada
+      questo tool usa tre servizi di OpenStreetMap: <strong>Nominatim</strong>
+      riceve gli indirizzi che scrivi e i punti che scegli sulla mappa, il
+      <strong>server dei percorsi FOSSGIS</strong> riceve le coordinate di
+      partenza e arrivo, e la <strong>cartina</strong> arriva da
+      openstreetmap.org. Prezzi, scelte e indirizzi restano salvati solo su
+      questo computer.
+    </p>
+    <p>
+      Consumi e pedaggi sono stime ragionevoli, non dati di omologazione:
+      servono a confrontare, non a fare i conti al centesimo.
+    </p>
+  </div>
+
+
+  <p class="eyebrow">Impostazioni</p>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">1</span>
+      <span class="panel__title">Prezzi dei carburanti</span>
+      <span class="panel__hint">Si aggiornano da soli ogni settimana; puoi sempre scrivere i tuoi.</span>
+    </summary>
+    <div class="panel__body">
+      <p class="muted">
+        Benzina, gasolio, GPL e metano sono la mediana nazionale dei prezzi
+        che i distributori comunicano al Ministero delle Imprese e del Made in
+        Italy (MIMIT), self-service per benzina e gasolio. L'elettricità non ha
+        una fonte ufficiale settimanale: il valore di partenza è indicativo,
+        e cambia molto fra la ricarica a casa (circa 0,30 €/kWh) e le
+        colonnine veloci (0,60–0,80 €/kWh).
+      </p>
+
+      <div class="table-wrap">
+        <table class="table" id="tab-prezzi">
+          <thead>
+            <tr>
+              <th>Carburante</th>
+              <th class="table__num">Prezzo</th>
+              <th>Unità</th>
+              <th>Fonte</th>
+              <th><span class="visually-hidden">Ripristina</span></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel no-print" open>
+    <summary class="panel__head">
+      <span class="panel__step">2</span>
+      <span class="panel__title">Cosa confrontare</span>
+      <span class="panel__hint">La tabella dei costi incrocia ogni tipo di auto con ogni alimentazione accesa.</span>
+    </summary>
+    <div class="panel__body">
+      <div class="field">
+        <span class="field__label" id="etichetta-tipi">Tipo di auto</span>
+        <div class="chips" id="scelta-tipi" role="group" aria-labelledby="etichetta-tipi"></div>
+        <p class="field__hint">
+          Utilitaria: Panda, Yaris. Compatta: Golf, 308. Berlina: Passat,
+          Serie 3. SUV: Tiguan, Sportage. Monovolume: Touran, Scénic.
+        </p>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="etichetta-alimentazioni">Alimentazione</span>
+        <div class="chips" id="scelta-alimentazioni" role="group" aria-labelledby="etichetta-alimentazioni"></div>
+      </div>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="autonomia-phev">Plug-in: km a batteria</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="autonomia-phev" data-campo="autonomiaPhev">
+        </div>
+        <div class="field">
+          <label class="field__label" for="pedaggio-tariffa">Pedaggio: € al km</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="pedaggio-tariffa" data-campo="pedaggioTariffa">
+        </div>
+      </div>
+      <p class="field__hint">
+        Il plug-in parte con la batteria carica e passa alla benzina quando è
+        finita. Il pedaggio è una stima pensata per l'Italia: una tariffa
+        media per un'auto di classe A moltiplicata per i km di autostrada del
+        percorso, tolte le principali autostrade gratuite (A2, A19, A29, GRA,
+        Roma–Fiumicino). All'estero le regole sono altre: lì conviene
+        togliere la spunta qui sotto.
+      </p>
+
+      <label class="field__label">
+        <input class="field__check" type="checkbox" id="pedaggio-incluso" data-campo="pedaggioIncluso">
+        <span>Includi il pedaggio nei costi della tabella</span>
+      </label>
+    </div>
+  </details>
+
+  <details class="panel no-print">
+    <summary class="panel__head">
+      <span class="panel__step">3</span>
+      <span class="panel__title">La tua auto</span>
+      <span class="panel__hint">Il consumo che leggi sul computer di bordo, come riga in più del confronto.</span>
+    </summary>
+    <div class="panel__body">
+      <label class="field__label">
+        <input class="field__check" type="checkbox" id="tua-attiva" data-campo="tuaAuto.attiva">
+        <span>Aggiungi la mia auto al confronto</span>
+      </label>
+
+      <div class="form form--inline">
+        <div class="field">
+          <label class="field__label" for="tua-alimentazione">Alimentazione</label>
+          <select class="field__select field__select--compact" id="tua-alimentazione"
+                  data-campo="tuaAuto.alimentazione"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="tua-consumo">Consumo medio</label>
+          <input class="field__input field__input--compact field__input--num" type="text"
+                 inputmode="decimal" id="tua-consumo" data-campo="tuaAuto.consumo" placeholder="6,5">
+        </div>
+        <div class="field">
+          <label class="field__label" for="tua-forma">Espresso in</label>
+          <select class="field__select field__select--compact" id="tua-forma"
+                  data-campo="tuaAuto.forma"></select>
+        </div>
+      </div>
+      <p class="field__hint">
+        Un consumo solo, uguale su tutte le strade: è la media che hai
+        misurato tu, e vale già per il tuo modo di guidare.
+      </p>
+    </div>
+  </details>
+
+
+  <p class="eyebrow">Percorso</p>
+
+  <div class="split split--mappa">
+    <div class="form">
+      <div class="field">
+        <div class="form form--inline">
+          <div class="field">
+            <label class="field__label" for="partenza-testo">A · Partenza</label>
+            <input class="field__input" type="text" id="partenza-testo"
+                   placeholder="Milano, Piazza del Duomo" autocomplete="off">
+          </div>
+          <button class="btn btn--ghost" type="button" data-azione="cerca" data-punto="partenza">Cerca</button>
+        </div>
+        <select class="field__select field__select--compact" id="partenza-alternative"
+                aria-label="Altri luoghi con questo nome" hidden></select>
+      </div>
+
+      <div class="field">
+        <div class="form form--inline">
+          <div class="field">
+            <label class="field__label" for="arrivo-testo">B · Arrivo</label>
+            <input class="field__input" type="text" id="arrivo-testo"
+                   placeholder="Bologna, Piazza Maggiore" autocomplete="off">
+          </div>
+          <button class="btn btn--ghost" type="button" data-azione="cerca" data-punto="arrivo">Cerca</button>
+        </div>
+        <select class="field__select field__select--compact" id="arrivo-alternative"
+                aria-label="Altri luoghi con questo nome" hidden></select>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="etichetta-clic">Un clic sulla mappa sposta</span>
+        <div class="chips" role="group" aria-labelledby="etichetta-clic">
+          <button class="chip" type="button" id="clic-partenza" data-azione="bersaglio"
+                  data-punto="partenza" aria-pressed="true">A · partenza</button>
+          <button class="chip" type="button" id="clic-arrivo" data-azione="bersaglio"
+                  data-punto="arrivo" aria-pressed="false">B · arrivo</button>
+        </div>
+        <p class="field__hint">
+          Scrivi un indirizzo e premi Invio, oppure clicca sulla mappa. I
+          segnaposto si possono trascinare.
+        </p>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="button" id="calcola" data-azione="calcola">Calcola</button>
+        <button class="btn btn--ghost" type="button" data-azione="inverti">⇅ Inverti A e B</button>
+      </div>
+
+      <p class="field__hint" id="stato-percorso" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="mappa no-print" id="mappa"></div>
+  </div>
+
+
+  <div id="risultati" hidden>
+
+    <p class="eyebrow">Costi del viaggio</p>
+
+    <div class="stack">
+      <div class="stats">
+        <div class="stat stat--hero">
+          <span class="stat__key">Distanza</span>
+          <span class="stat__value" id="tot-distanza">—</span>
+        </div>
+        <div class="stat stat--hero">
+          <span class="stat__key">Il più conveniente</span>
+          <span class="stat__value" id="tot-migliore">—</span>
+          <span class="stat__note" id="nota-migliore"></span>
+        </div>
+        <div class="stat">
+          <span class="stat__key">Durata</span>
+          <span class="stat__value" id="tot-durata">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat__key">Pedaggio stimato</span>
+          <span class="stat__value" id="tot-pedaggio">—</span>
+          <span class="stat__note" id="nota-pedaggio"></span>
+        </div>
+      </div>
+
+      <div class="bars" id="barre-regimi"></div>
+
+      <div class="table-wrap">
+        <table class="table" id="tab-confronto">
+          <thead>
+            <tr>
+              <th>Auto</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <div class="note" id="avvisi-viaggio" hidden></div>
+
+      <p class="muted">
+        Ogni cella è il costo del viaggio di sola andata, con sotto quanto
+        carburante serve. In evidenza l'alimentazione più conveniente di ogni
+        tipo di auto e, su fondo verde, la più conveniente in assoluto. I
+        consumi cambiano con il tipo di strada: un'elettrica spende poco in
+        città e di più in autostrada, un diesel il contrario.
+      </p>
+    </div>
+
+  </div>
+
+</main>
+
+<site-footer></site-footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Leaflet prima del tool: viaggio.js usa la variabile L che definisce. -->
+<script src="/assets/vendor/leaflet/leaflet.js"></script>
+<script src="/assets/js/tools/viaggio.js"></script>
+</body>
+</html>
