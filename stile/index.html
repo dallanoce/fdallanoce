@@ -921,6 +921,101 @@ nodo.classList.add("is-on");</pre>
 &lt;code class="code code--inline"&gt;nome.di.funzione&lt;/code&gt;</pre>
 
 
+  <p class="eyebrow">Mappa con percorso</p>
+
+  <p class="muted">
+    Componenti della sezione 12 del foglio di stile, usati dal costo del
+    viaggio. La cartina vera la disegna Leaflet, copiato in
+    <span class="mono">/assets/vendor/leaflet/</span> e caricato solo dalle
+    pagine che hanno una mappa, con <span class="mono">leaflet.css</span>
+    incluso <strong>prima</strong> di <span class="mono">style.css</span>.
+    Qui sotto c'è il riquadro senza Leaflet, con un percorso disegnato a mano
+    perché si vedano i colori.
+  </p>
+
+  <div class="split split--mappa">
+    <div class="form">
+      <div class="field">
+        <label class="field__label" for="demo-partenza">A · Partenza</label>
+        <input class="field__input" type="text" id="demo-partenza" value="Milano">
+      </div>
+      <p class="field__hint field__hint--warn">Non trovo «Milnao»: prova ad aggiungere la città o la provincia.</p>
+    </div>
+    <div class="mappa">
+      <svg viewBox="0 0 200 160" aria-hidden="true">
+        <path class="mappa__percorso-fondo" fill="none" d="M30 30 C 80 40, 70 100, 120 110 S 170 140, 175 135"/>
+        <path class="mappa__percorso" fill="none" d="M30 30 C 80 40, 70 100, 120 110 S 170 140, 175 135"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tags">
+      <div class="mappa__pin">A</div>
+      <div class="mappa__pin">B</div>
+    </div>
+  </div>
+
+  <pre class="code">&lt;div class="split split--mappa"&gt;
+  &lt;div class="form"&gt;…campi…&lt;/div&gt;
+  &lt;div class="mappa no-print" id="mappa"&gt;&lt;/div&gt;   Leaflet la riempie
+&lt;/div&gt;
+
+&lt;p class="field__hint field__hint--warn"&gt;…&lt;/p&gt;      stato di un modulo andato storto
+
+// i segnaposto e la linea li crea il JavaScript
+L.divIcon({ className: "mappa__pin", html: "A", iconSize: null })
+L.polyline(punti, { className: "mappa__percorso-fondo" })
+L.polyline(punti, { className: "mappa__percorso" })</pre>
+
+  <p class="figcap">
+    Nel tema scuro le tile, che OpenStreetMap disegna solo chiare, passano dal
+    filtro <span class="mono">--mappa-filtro</span>: un token come i colori,
+    definito nei tre posti dei colori. Il filtro tocca solo le tile, non la
+    linea né i segnaposto. Il margine negativo di <span class="mono">.mappa__pin</span>
+    mette il centro del cerchio sul punto della mappa: fuori da una mappa,
+    come qui sopra, il segnaposto risulta spostato di mezza misura.
+  </p>
+
+
+  <p class="eyebrow">Tabella di confronto</p>
+
+  <p class="muted">
+    Una <span class="mono">.table</span> con una cella per incrocio. Sotto il
+    numero, in <span class="mono">.table__unit</span>, il dato da cui viene.
+    <span class="mono">.table__pick</span> segna la scelta migliore della
+    riga, <span class="mono">.table__best</span> la migliore di tutta la
+    tabella.
+  </p>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Auto</th>
+          <th class="table__num">Benzina<br><span class="table__unit">1,749 €/L</span></th>
+          <th class="table__num">Elettrica<br><span class="table__unit">0,400 €/kWh</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="table__name">Utilitaria</td>
+          <td class="table__num">23,80 €<br><span class="table__unit">13,6 L</span></td>
+          <td class="table__num table__pick table__best">16,40 €<br><span class="table__unit">41 kWh</span></td>
+        </tr>
+        <tr>
+          <td class="table__name">SUV</td>
+          <td class="table__num">32,10 €<br><span class="table__unit">18,4 L</span></td>
+          <td class="table__num table__pick">21,60 €<br><span class="table__unit">54 kWh</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <pre class="code">&lt;td class="table__num table__pick"&gt;21,60 €&lt;br&gt;&lt;span class="table__unit"&gt;54 kWh&lt;/span&gt;&lt;/td&gt;
+&lt;td class="table__num table__pick table__best"&gt;…&lt;/td&gt;   la migliore in assoluto</pre>
+
+
   <p class="eyebrow">Colori</p>
 
   <div class="prose">

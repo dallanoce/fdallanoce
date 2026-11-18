@@ -28,15 +28,28 @@ Plus three pages that live outside the trees: `/` (a language router),
 These are deliberate decisions by the owner. Do not change them without asking first.
 
 - **No build step.** No bundler, no transpiler, no `package.json`. What is in the
-  repo is what ships.
+  repo is what ships. The weekly GitHub Action that writes
+  `assets/data/carburanti.json` is not a build step: it commits a data file, and
+  the site still ships exactly as the repo holds it.
 - **No framework, no dependencies.** Vanilla JS only. Do not introduce React, Vue,
-  Tailwind, a static site generator, or any npm package.
+  Tailwind, a static site generator, or any npm package. **One exception, decided
+  by the owner:** Leaflet 1.9.4, copied (not linked from a CDN) into
+  `assets/vendor/leaflet/` and loaded only by the two trip cost pages, because a
+  map cannot reasonably be hand-written. Do not add a second library, and do not
+  load this one on pages that have no map.
 - **No platform lock-in.** The site must stay movable to any static host by copying
   files. Do not use host-specific features (Cloudflare Functions/Workers bindings,
   Netlify-specific redirect syntax, `_redirects`, etc.) without asking. This is why
   the language routing at `/` is client-side JavaScript and not a server rule.
 - **Everything runs client-side.** Tools never call a backend and never transmit
   user input anywhere. This is stated to visitors on the tools index; keep it true.
+  **One declared exception:** the trip cost tool (`/it/strumenti/viaggio/`,
+  `/en/tools/trip-cost/`) sends the addresses typed and the points clicked to
+  Nominatim, the start and end coordinates to the FOSSGIS Valhalla server, and loads
+  map tiles from openstreetmap.org. The tools index says "except where stated" and
+  names it; the tool page lists each service and what it receives. Any other tool
+  that needs to send data anywhere needs the owner's go-ahead first, then the
+  same two declarations.
 
 The owner is an experienced developer but **not** a frontend developer. Favour
 explicit, boring, well-commented code over clever or terse code. Explain frontend
@@ -55,21 +68,28 @@ reasoning when it is not obvious.
 │   ├── cv/index.html
 │   ├── articoli/index.html
 │   └── strumenti/index.html
-│       └── grigliata/            one tool = one folder
+│       ├── grigliata/            one tool = one folder
+│       └── viaggio/              costo del viaggio: mappa, percorso, confronto
 ├── en/                            albero inglese, stessa forma
 │   ├── index.html
 │   ├── cv/index.html
 │   ├── articles/index.html
 │   └── tools/index.html
-│       └── barbecue/
+│       ├── barbecue/
+│       └── trip-cost/
 ├── stile/index.html               style guide, noindex, Italian only, not in the nav
-└── assets/
-    ├── css/style.css              the entire stylesheet
-    └── js/
-        ├── tema.js                light/dark theme; loaded first, before i18n.js
-        ├── i18n.js                page language + JS strings; loaded before layout.js
-        ├── layout.js              shared header, footer, language switcher, theme switch
-        └── tools/                 per-tool logic, one file each, shared by both trees
+├── assets/
+│   ├── css/style.css              the entire stylesheet
+│   ├── data/carburanti.json       fuel prices, written by the weekly workflow
+│   ├── vendor/leaflet/            Leaflet 1.9.4 (leaflet.js, leaflet.css, LICENSE)
+│   └── js/
+│       ├── tema.js                light/dark theme; loaded first, before i18n.js
+│       ├── i18n.js                page language + JS strings; loaded before layout.js
+│       ├── layout.js              shared header, footer, language switcher, theme switch
+│       └── tools/                 per-tool logic, one file each, shared by both trees
+└── .github/
+    ├── workflows/prezzi-carburanti.yml   every Monday: MIMIT prices → carburanti.json
+    └── scripts/prezzi_carburanti.py      the script it runs; Python stdlib only
 ```
 
 `assets/` is **not** duplicated per language. One stylesheet, one copy of each
@@ -126,7 +146,7 @@ that was chosen deliberately over keeping both languages inside one document.
 
 **URLs are translated too.** `/it/articoli/` ↔ `/en/articles/`,
 `/it/strumenti/` ↔ `/en/tools/`, `/it/strumenti/grigliata/` ↔
-`/en/tools/barbecue/`. `cv` happens to be the same word in both. Because the
+`/en/tools/barbecue/`, `/it/strumenti/viaggio/` ↔ `/en/tools/trip-cost/`. `cv` happens to be the same word in both. Because the
 pairing is declared per page in `hreflang`, translated slugs cost nothing extra to
 maintain — there is no central routing table to keep in sync.
 
@@ -305,7 +325,8 @@ Written down so future changes do not drift.
   instead of aliasing it to a short `t` in each file. Watch for it whenever you
   add a tool: `tema.js`, `i18n.js`, `layout.js` and the tool's file are all
   loaded together. `LINGUE`, `LINGUA_PREDEFINITA`, `CHIAVE_LINGUA`, `I18N`,
-  `SITE`, `TEMI`, `TEMA_PREDEFINITO`, `CHIAVE_TEMA` and `TEMA` are taken.
+  `SITE`, `TEMI`, `TEMA_PREDEFINITO`, `CHIAVE_TEMA` and `TEMA` are taken, and on
+  the trip cost pages Leaflet also takes `L`.
   **Function names collide too, and more quietly:** a second `function
   leggiScelta()` does not throw, it silently replaces the first. That is why
   `tema.js` calls its own pair `leggiTema` / `scriviTema`.
@@ -335,8 +356,9 @@ Written down so future changes do not drift.
   work, and neither does the router at `/`. Local development needs
   `python3 -m http.server 8000`.
 - **`python3 -m http.server` does not serve `404.html`.** It returns its own error
-  page, so the 404 cannot be tested by browsing to a bad URL locally. Cloudflare
-  Pages does serve it. To test it locally, open `/404.html` directly — note that
+  page, so the 404 cannot be tested by browsing to a bad URL locally. Whether the
+  live site serves it for unknown paths depends on the Worker's static-asset
+  settings, and has not been checked (see Deployment). To test it locally, open `/404.html` directly — note that
   it will pick its language from the browser, since the path has no `/it/` or
   `/en/` prefix to read.
 - **The print palette needs both selectors.** `@media print` redefines the
@@ -348,6 +370,8 @@ Written down so future changes do not drift.
   still needed for a visitor with JavaScript off, who has no attribute at all.
 - **A new colour token has to be added in three places:** `:root` (dark),
   `:root[data-tema="chiaro"]` (light) and the `@media print` block.
+  `--mappa-filtro` follows the same rule although it is a filter, not a colour:
+  OpenStreetMap tiles exist only light, so the dark theme inverts them with it.
 - **CSS specificity trap in `.prose`.** Vertical rhythm comes from
   `.prose > * + * { margin-top }` (specificity 0,1,0). Adding a type-based reset
   like `.prose p { margin: 0 }` (0,1,1) silently wins and collapses the spacing.
@@ -370,13 +394,67 @@ Written down so future changes do not drift.
   would give anyone who switches language a half-translated shopping list. The
   same applies to category keys (`carne`, not `Carne`).
 
+### The trip cost tool
+
+- **Leaflet's CSS goes before `style.css`.** Section 12 of the stylesheet
+  restyles Leaflet's controls with the site's tokens at the same specificity,
+  so it has to come later. `leaflet.css` itself contains hex and `px` values: it
+  is a vendor file and is not edited.
+- **The tiles are drawn 256.5 px wide on purpose.** When the map sits at a
+  fractional pixel — almost always, in a fractional grid — adjacent 256 px tiles
+  each half-cover their shared pixel and a light seam shows between them. The
+  half-pixel overlap in section 12 is the known Leaflet remedy. It assumes
+  256 px tiles: change it if the tile service changes. `isolation: isolate` on
+  `.mappa` keeps Leaflet's z-indexes (up to 1000) from climbing over `.toast`;
+  it is not related to the seams.
+- **The route comes from FOSSGIS Valhalla, not OSRM.** The FOSSGIS OSRM server
+  was tried first and dropped: it marks neither motorways nor tolls, and rejects
+  `exclude=toll`. Valhalla marks every maneuver with `toll` and `highway` from
+  OpenStreetMap, so the tolled km are real data and only the euro amount (an
+  average rate) is an estimate. The ferry maneuver is marked `toll` too; it is
+  counted as ferry, not as toll.
+- **"Evita i pedaggi" means `use_tolls: 0`, not `exclude_tolls`.** It is "avoid if
+  possible", like Google Maps: where no toll-free road exists the route uses as
+  few tolled km as it can and the page says how many. `exclude_tolls` would
+  return no route at all instead. Changing the box changes the road, so it
+  clears the result and asks for a new Calcola.
+- **Valhalla's request is JSON inside the URL** (`/route?json=…`), the route
+  shape is a polyline with 6 decimals (`decodificaPolilinea()`), and "no road
+  found" is an HTTP 400 with `error_code` 442 — `chiedi()` lets 400 through on
+  purpose so `leggiPercorso()` can turn it into a message.
+- **City vs out-of-town is decided by average speed, and the city threshold is
+  40 km/h, not 50.** Valhalla's speeds are cautious: on a toll-free
+  Milan–Bologna it puts provincial and state roads at 45–50 km/h. With 50, two
+  thirds of that route counted as city driving.
+- **Nominatim forbids autocomplete** and both services allow one request per
+  second. Searching happens only on Enter, "Cerca" or "Calcola", and every
+  request goes through `chiedi()`, which queues calls per host.
+- **`python3 -m http.server` works for the tool**, but the map, the search and
+  the route need the network; `carburanti.json` is read from the same origin.
+- **`carburanti.json` starts empty** (`"prezzi": {}`) and the page uses its own
+  rough fallback prices, labelled "valore indicativo", until the workflow has
+  run. A missing file would also work but logs a 404.
+
 ## Deployment
 
-Cloudflare Pages, connected to this repo. Build command: **empty**. Output
-directory: the repository root. Every push to the default branch publishes.
+The site is a **Cloudflare Worker named `fdallanoce`, built by Workers Builds**
+from this repository — not a Cloudflare Pages project, as earlier versions of
+this file said. Every push to the default branch publishes.
 
-The custom domain has not been chosen yet, so the site currently lives on a
-`*.pages.dev` subdomain.
+**Every other branch gets a preview build** that does not touch the live site.
+Its result appears on the commit in GitHub as the check **"Workers Builds:
+fdallanoce"**, whose summary carries two URLs:
+
+- `https://<branch>-fdallanoce.dallanoce-fd.workers.dev` — follows the branch
+  (the name with `/` turned into `-`, e.g. `claude-vibrant-turing-vcc2y3-…`);
+- `https://<version>-fdallanoce.dallanoce-fd.workers.dev` — that one build.
+
+The custom domain has not been chosen yet.
+
+The fuel price workflow commits to the default branch, so each of its commits
+is also a deploy. It only commits when the prices changed. GitHub suspends
+scheduled workflows after 60 days without repository activity: if prices stop
+updating, re-enable it from the Actions tab.
 
 ## Before finishing a change
 
@@ -393,6 +471,8 @@ The custom domain has not been chosen yet, so the site currently lives on a
   `<site-header>` and `<site-footer>`, with the three scripts in that order and
   none of them deferred
 - New reusable component is documented in `/stile/`
+- Nothing new is sent off the device; if it is, the owner agreed and both the
+  tools index and the tool page say so
 - Checked at a narrow viewport, in **both themes**; keyboard focus is visible
 
 ## Open TODOs
@@ -407,6 +487,11 @@ The custom domain has not been chosen yet, so the site currently lives on a
   files (currently commented out). Decide whether there is one PDF or one per
   language
 - Add a favicon
+- Run the fuel price workflow once by hand (Actions → Prezzi carburanti → Run
+  workflow) and check it commits real prices. From the development container the
+  MIMIT server reset the connection during the TLS handshake, which suggests it
+  may refuse some cloud IP ranges; GitHub's runners might be among them. If so,
+  a fallback source is the EU Weekly Oil Bulletin (petrol, diesel, LPG; no CNG)
 - Choose and attach the custom domain. When it exists, make the `hreflang` and
   `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative
   `hreflang`. Nothing else needs to change — that is why paths are absolute

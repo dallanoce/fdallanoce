@@ -20,9 +20,10 @@
    9. Form           — campi, bottoni, risultati (per i tool)
    10. Tool grandi   — pannelli, tabelle, barre, liste con spunta
    11. Guida         — parti, formule, schede, laboratori (guida correlazione)
-   12. Footer
-   13. Utility
-   14. Stampa
+   12. Mappa         — cartina con percorso (costo del viaggio)
+   13. Footer
+   14. Utility
+   15. Stampa
    ========================================================================== */
 
 
@@ -79,6 +80,14 @@
   --heat-neg:     #E29A8B;   /* estremo negativo */
   --heat-mid:     #1B1F1A;   /* zero */
   --heat-ink:     #E9ECE7;   /* numero stampato dentro la cella */
+
+  /* Token della mappa (sezione 12). Non è un colore ma decide di che colore
+     si vedono le tile: le cartine di OpenStreetMap esistono solo chiare, e
+     nel tema scuro si rovesciano con un filtro. invert(1) rovescia tutto,
+     hue-rotate(180deg) riporta le tinte al loro posto — il mare resta
+     azzurro, i parchi verdi — e così resta rovesciata solo la luminosità.
+     Va definito nei tre posti dei colori, come loro. */
+  --mappa-filtro: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
 
   /* --- Tipografia -------------------------------------------------------- */
   --font-ui:   "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -155,6 +164,8 @@
   --heat-neg:     #A2451B;
   --heat-mid:     #FFFFFF;
   --heat-ink:     #191C18;
+
+  --mappa-filtro: none;
 }
 
 
@@ -846,9 +857,15 @@ a:hover { color: var(--accent-deep); }
 
 /* --- Tabelle di dati ------------------------------------------------------
    .table-wrap fa scorrere la tabella dentro di sé invece di allargare la
-   pagina: senza, su un telefono scorrerebbe tutto il documento. */
+   pagina: senza, su un telefono scorrerebbe tutto il documento.
 
-.table-wrap { overflow-x: auto; }
+   position: relative non è decorativo. Le intestazioni nascoste
+   (.visually-hidden, che è in position: absolute) si agganciano al primo
+   antenato posizionato: senza questa riga sarebbe la pagina intera, e la
+   loro posizione oltre il bordo allargherebbe lo stesso tutto il documento
+   anche con la tabella che scorre dentro di sé. */
+
+.table-wrap { overflow-x: auto; position: relative; }
 
 .table {
   width: 100%;
@@ -912,6 +929,10 @@ a:hover { color: var(--accent-deep); }
   font-size: var(--t-xs);
   color: var(--ink-3);
 }
+
+/* Dentro un'intestazione l'unità resta com'è scritta: in maiuscolo "kWh"
+   diventerebbe "KWH", che è un'altra cosa. */
+.table thead .table__unit { text-transform: none; letter-spacing: 0; }
 
 
 /* --- Campi dentro una tabella --------------------------------------------
@@ -1626,7 +1647,127 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   12. FOOTER
+   12. MAPPA — una cartina con un percorso
+
+   La usa oggi il tool del costo del viaggio. La cartina la disegna Leaflet,
+   una libreria copiata in /assets/vendor/leaflet/ e caricata solo dalle
+   pagine che hanno una mappa. Il suo foglio di stile, leaflet.css, va
+   incluso PRIMA di questo: così, a parità di specificità, vincono le regole
+   scritte qui sotto, che rimettono i controlli della mappa nei colori del
+   sito e li fanno cambiare con il tema.
+
+   leaflet.css contiene colori e pixel scritti a mano. È un file di terzi e
+   non si tocca: la regola dei token vale per le pagine e per questo file,
+   e tutto quello che si vede della mappa viene corretto da qui.
+   ========================================================================== */
+
+/* Campi a sinistra, mappa a destra. È .split della sezione 11 con le
+   proporzioni rovesciate, perché qui la parte larga è la mappa. Sotto la
+   stessa soglia diventa una colonna sola e la mappa scende sotto i campi.
+   La regola stretta va ripetuta: quella di .split viene prima nel file e,
+   a pari specificità, perderebbe contro le colonne scritte qui. */
+.split--mappa { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+@media (max-width: 54rem) { .split--mappa { grid-template-columns: 1fr; } }
+
+/* Il riquadro della mappa. L'altezza va data per forza: Leaflet riempie il
+   suo contenitore, e un contenitore senza altezza è alto zero.
+
+   isolation: isolate chiude dentro il riquadro gli z-index di Leaflet, che
+   arrivano a 1000: senza, i bottoni dello zoom passerebbero sopra al
+   messaggio temporaneo (.toast) e a qualunque cosa galleggi sulla pagina. */
+.mappa {
+  height: 30rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  isolation: isolate;
+  font-family: var(--font-ui);
+  font-size: var(--t-xs);
+}
+@media (max-width: 54rem) { .mappa { height: 22rem; } }
+
+/* Le tile sono quadrati di 256 pixel messi uno accanto all'altro. Quando
+   il riquadro della mappa cade a metà di un pixel — in una griglia a
+   frazioni capita quasi sempre — due tile vicine coprono ciascuna solo una
+   parte del pixel che condividono, e fra l'una e l'altra traspare una riga
+   chiara. Allargarle di mezzo pixel le fa sovrapporre quel tanto che basta:
+   è il rimedio noto per Leaflet. Il !important serve perché la misura
+   Leaflet la scrive nell'attributo style di ogni tile; 256 è la misura delle
+   tile di OpenStreetMap, e va cambiata qui se cambia il servizio. */
+.mappa .leaflet-tile-container img {
+  width: 256.5px !important;
+  height: 256.5px !important;
+}
+
+/* Le tile sono immagini: il tema non le può ricolorare, le può solo
+   filtrare. Il filtro sta su un livello solo, quello delle tile, così il
+   percorso e i segnaposto restano nei colori veri del tema. */
+.mappa .leaflet-tile-pane { filter: var(--mappa-filtro); }
+
+/* Bottoni dello zoom */
+.mappa .leaflet-bar {
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+.mappa .leaflet-bar a {
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom-color: var(--rule);
+}
+.mappa .leaflet-bar a:hover { background: var(--surface-2); color: var(--accent); }
+
+/* Riga dei crediti, obbligatoria per le condizioni d'uso di OpenStreetMap */
+.mappa .leaflet-control-attribution {
+  background: var(--surface);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+}
+.mappa .leaflet-control-attribution a { color: var(--ink-2); }
+
+/* Segnaposto A e B. Sono un <div> con una lettera e non un'immagine: così
+   prendono i colori dal tema e non serve nessun file in più.
+
+   Leaflet mette l'angolo in alto a sinistra del segnaposto sul punto della
+   mappa. Il margine negativo di mezza misura sposta il centro del cerchio
+   sul punto. Il JavaScript passa iconSize: null proprio perché Leaflet non
+   scriva al posto nostro larghezza, altezza e margini in pixel. */
+.mappa__pin {
+  display: grid;
+  place-items: center;
+  width: var(--s-6);
+  height: var(--s-6);
+  margin: calc(var(--s-6) / -2) 0 0 calc(var(--s-6) / -2);
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: grab;
+}
+
+/* Il percorso è una linea SVG disegnata da Leaflet. Il CSS vince sugli
+   attributi che Leaflet scrive (stroke, stroke-width), quindi basta una
+   classe. Sotto la linea ce n'è una seconda più larga, color carta, che la
+   stacca dalla cartina in tutti e due i temi. */
+.mappa__percorso { stroke: var(--accent); stroke-width: 0.3rem; stroke-opacity: 1; }
+.mappa__percorso-fondo { stroke: var(--paper); stroke-width: 0.55rem; stroke-opacity: 0.9; }
+
+/* Una riga di stato sotto un modulo quando qualcosa è andato storto: un
+   indirizzo che non si trova, un servizio che non risponde. È l'ambra del
+   sito, che vuol dire "attenzione" e non "errore fatale". */
+.field__hint--warn { color: var(--warm); }
+
+/* La cella più conveniente di tutta una tabella di confronto. Quella più
+   conveniente della sua riga usa .table__pick della sezione 11. */
+.table__best { background: var(--accent-soft); color: var(--accent-deep); font-weight: 500; }
+
+
+/* ==========================================================================
+   13. FOOTER
    ========================================================================== */
 
 .footer {
@@ -1651,7 +1792,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   13. UTILITY — poche e mirate
+   14. UTILITY — poche e mirate
    ========================================================================== */
 
 .stack-sm > * + * { margin-top: var(--s-3); }
@@ -1666,7 +1807,7 @@ a:hover { color: var(--accent-deep); }
 
 
 /* ==========================================================================
-   14. STAMPA
+   15. STAMPA
    Quello che si stampa è il contenuto: testata, footer e comandi restano
    fuori. Un tool marca con .no-print i suoi moduli e i suoi bottoni, e con
    .print-only le righe che hanno senso solo sul foglio (un'intestazione con
@@ -1718,6 +1859,8 @@ a:hover { color: var(--accent-deep); }
     --heat-neg:     #000000;
     --heat-mid:     #FFFFFF;
     --heat-ink:     #000000;
+
+    --mappa-filtro: none;
   }
 
   .masthead, .footer, .skip, .toast, .no-print { display: none !important; }
