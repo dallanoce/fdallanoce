@@ -49,7 +49,7 @@ known, and what `x-default` points at.
 │       └── tools/                 per-tool logic
 └── .github/
     ├── workflows/prezzi-carburanti.yml   weekly fuel price update
-    └── scripts/prezzi_carburanti.py      MIMIT CSV → carburanti.json, stdlib only
+    └── scripts/prezzi_carburanti.py      EU Weekly Oil Bulletin → carburanti.json, stdlib only
 ```
 
 ## Running it locally

@@ -1,24 +1,32 @@
 # PREZZI DEI CARBURANTI — aggiornamento settimanale
 #
-# Scarica il CSV dei prezzi del MIMIT, calcola la mediana nazionale di
-# benzina, gasolio, GPL e metano e la scrive in assets/data/carburanti.json,
-# che il tool "Costo del viaggio" legge come prezzi di partenza.
+# Scarica il Weekly Oil Bulletin della Commissione europea, ne legge i prezzi
+# medi nazionali dell'Italia (benzina, gasolio, GPL) e li scrive in
+# assets/data/carburanti.json, che il tool "Costo del viaggio" legge come
+# prezzi di partenza. Il metano nel bollettino non c'è.
 #
-# Perché un workflow: il MIMIT non permette al browser di leggere il suo file
-# (niente CORS), e il sito non ha un backend. Così il calcolo si fa qui una
-# volta alla settimana, e il sito resta una cartella di file statici.
+# Perché un workflow: il file della Commissione è un .xlsx senza intestazioni
+# CORS, che il browser non può leggere da un altro sito, e il sito non ha un
+# backend. Così il lavoro si fa qui una volta alla settimana, e il sito resta
+# una cartella di file statici.
+#
+# Perché non il CSV del MIMIT, la fonte della prima versione: il server del
+# MIMIT non risponde dai runner di GitHub (la prima esecuzione è finita in
+# timeout). Il dettaglio sta in cima allo script.
 #
 # Ogni commit di questo workflow sul ramo principale è anche una nuova
-# pubblicazione su Cloudflare Pages: per questo committa solo se i prezzi
-# sono cambiati.
+# pubblicazione su Cloudflare (Workers Builds): per questo committa solo se
+# i prezzi sono cambiati.
 #
-# DUE COSE DA SAPERE
+# TRE COSE DA SAPERE
+# - Il bollettino riporta i prezzi in vigore il lunedì e la Commissione lo
+#   pubblica il giovedì: per questo il workflow gira il venerdì.
 # - GitHub sospende i workflow programmati dopo 60 giorni senza attività nel
 #   repository. Se i prezzi smettono di aggiornarsi, controlla la scheda
 #   Actions e riattivalo da lì.
-# - Se il MIMIT non risponde o il file è incompleto, lo script esce con un
-#   errore e non scrive niente: il sito continua con i prezzi della volta
-#   prima.
+# - Se il file non si scarica, è cambiato formato o ha prezzi vecchi di più
+#   di tre settimane, lo script esce con un errore e non scrive niente: il
+#   sito continua con i prezzi della volta prima.
 #
 # Si può lanciare anche a mano: scheda Actions → Prezzi carburanti → Run workflow.
 
@@ -26,8 +34,8 @@ name: Prezzi carburanti
 
 on:
   schedule:
-    # Lunedì alle 08:37 UTC, dopo la pubblicazione del mattino
-    - cron: "37 8 * * 1"
+    # Venerdì alle 08:37 UTC, il giorno dopo la pubblicazione del bollettino
+    - cron: "37 8 * * 5"
   workflow_dispatch:
 
 permissions:
@@ -44,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Scarica il CSV e calcola le mediane
+      - name: Scarica il bollettino e leggi i prezzi dell'Italia
         run: python3 .github/scripts/prezzi_carburanti.py
 
       - name: Committa il JSON se è cambiato
