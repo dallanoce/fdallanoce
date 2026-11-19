@@ -1,196 +1,266 @@
 #!/usr/bin/env python3
 """
-PREZZI DEI CARBURANTI — dal CSV del MIMIT al JSON letto dal sito
+PREZZI DEI CARBURANTI — dal Weekly Oil Bulletin della Commissione europea
+al JSON letto dal sito
 
 Lo lancia ogni settimana la GitHub Action .github/workflows/prezzi-carburanti.yml
 e scrive assets/data/carburanti.json, che il tool "Costo del viaggio"
 (assets/js/tools/viaggio.js) legge come prezzi di partenza.
 
-PERCHÉ UNO SCRIPT E NON UNA CHIAMATA DAL BROWSER
-Il MIMIT pubblica ogni giorno i prezzi di tutti i distributori italiani in un
-CSV, ma il suo server non manda le intestazioni CORS: un browser non ha il
-permesso di leggerlo da un altro sito. Lo legge quindi questo script, una
-volta alla settimana, e il sito serve il risultato come file statico.
-Il sito resta una cartella di file: nessun backend, nessuna funzione di
-Cloudflare, nessuna chiave.
+DA DOVE ARRIVANO I PREZZI
+Ogni settimana ogni Stato dell'UE comunica alla Commissione europea il prezzo
+medio nazionale dei carburanti in vigore il lunedì; la Commissione li
+pubblica il giovedì nel Weekly Oil Bulletin. Per l'Italia è il Ministero
+(MIMIT) a mandarli. Questo script scarica il file "Prices with taxes, latest
+prices" e ne legge la riga dell'Italia.
+
+PERCHÉ NON IL CSV DEL MIMIT
+La prima versione dello script leggeva il CSV giornaliero del MIMIT, con un
+prezzo per ogni distributore. Il server del MIMIT però non risponde dai
+runner di GitHub: la prima esecuzione è finita in timeout senza ricevere un
+byte, e lo stesso succede da altri cloud. Il server della Commissione
+risponde. Il prezzo cambia di poco: è una media nazionale invece di una
+mediana, e c'è una settimana di ritardo invece di un giorno.
+
+COSA C'È E COSA NO
+Benzina (Euro-super 95), gasolio e GPL, tasse comprese. Il metano nel
+bollettino non c'è: il sito usa il suo valore indicativo, come per
+l'elettricità.
+
+PERCHÉ IL BROWSER NON LO LEGGE DA SÉ
+Il file è un .xlsx, e il server della Commissione non manda le intestazioni
+CORS: un browser non avrebbe comunque il permesso di leggerlo da un altro
+sito. Lo legge questo script una volta alla settimana, e il sito serve il
+risultato come file statico. Nessun backend, nessuna chiave.
 
 COSA FA
-  1. scarica prezzo_alle_8.csv (o legge un file locale con --csv, per provarlo)
-  2. tiene benzina, gasolio, GPL e metano, con il nome esatto: le varianti
-     "speciali" (Blue Diesel, HiQ Perform+…) sono un altro prodotto
-  3. benzina e gasolio solo in self-service, che è il prezzo che si paga di
-     solito; GPL e metano in qualunque modalità, perché il self lì è raro
-  4. scarta i prezzi comunicati più di 30 giorni prima dell'estrazione
-     (impianti fermi) e quelli fuori da un intervallo plausibile (refusi)
-  5. un prezzo per impianto, il più basso se ce n'è più d'uno
-  6. per ogni carburante la MEDIANA nazionale: un distributore che sbaglia
-     una virgola non la sposta, una media invece sì
-  7. scrive il JSON solo se è cambiato, così il workflow non fa commit vuoti
+  1. scarica il file (o legge un file locale con --xlsx, per provarlo)
+  2. apre il primo foglio: un .xlsx è uno zip di file XML, bastano zipfile
+     e xml.etree della libreria standard
+  3. trova le colonne per nome, non per posizione, e la riga "Italy"
+  4. controlla che l'unità sia "1000 l" e divide per mille: €/L
+  5. controlla che ogni prezzo sia plausibile e che la data non sia vecchia
+  6. scrive il JSON solo se è cambiato, così il workflow non fa commit vuoti
 
-Se un carburante resta con troppo pochi impianti lo script si ferma con un
-errore e non scrive niente: il file vecchio resta dov'è e il sito continua a
-usarlo. Meglio un prezzo di una settimana fa che uno sbagliato.
+Se qualcosa non torna lo script si ferma con un errore e non scrive niente:
+il file vecchio resta dov'è e il sito continua a usarlo. Meglio un prezzo di
+qualche settimana fa che uno sbagliato.
 
 Solo libreria standard di Python: niente da installare.
 """
 
 import argparse
-import csv
 import io
 import json
 import re
-import statistics
 import sys
 import urllib.request
-from datetime import date, datetime
-from pathlib import Path
+import xml.etree.ElementTree as ET
+import zipfile
+from datetime import date, timedelta
+from pathlib import Path, PurePosixPath
 
 
 # --------------------------------------------------------------------------
 # PARAMETRI
 # --------------------------------------------------------------------------
 
-URL_CSV = "https://www.mimit.gov.it/images/exportCSV/prezzo_alle_8.csv"
+# "Prices with taxes, latest prices (xlsx)" sulla pagina
+# https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en
+#
+# L'indirizzo resta lo stesso da una settimana all'altra: la Commissione
+# sostituisce il file, non il link. Il nome del file che il server dichiara
+# (oggi "…with Taxes - 2026-09-21.xlsx") non conta e può essere vecchio di
+# mesi: la data vera dei prezzi sta dentro il foglio.
+# Se un giorno smette di funzionare: aprire la pagina qui sopra, cercare
+# "Prices with taxes latest prices (xlsx)", copiare il link di Download.
+URL_XLSX = "https://energy.ec.europa.eu/document/download/264c2d0f-f161-4ea3-a777-78faae59bea0_en"
 
 # La radice del repository: questo file sta in .github/scripts/
 RADICE = Path(__file__).resolve().parents[2]
 USCITA_PREDEFINITA = RADICE / "assets" / "data" / "carburanti.json"
 
-# Il nome del carburante nel CSV (minuscolo) → la chiave usata dal sito
-CARBURANTI = {
-    "benzina": "benzina",
-    "gasolio": "gasolio",
-    "gpl": "gpl",
-    "metano": "metano",
+# Il paese, scritto come nella colonna A del foglio
+PAESE = "Italy"
+
+# La chiave usata dal sito → un pezzo dell'intestazione della sua colonna.
+# Le intestazioni sono in tre lingue ("GPL pour moteur LPG motor fuel"):
+# basta un pezzo che compaia in una sola colonna. Attenzione al gasolio:
+# "Gas oil de chauffage" è il gasolio da riscaldamento, un altro prodotto.
+COLONNE = {
+    "benzina": "euro-super 95",
+    "gasolio": "gas oil automobile",
+    "gpl": "lpg motor fuel",
 }
 
-# Quelli che contano solo in self-service
-SOLO_SELF = {"benzina", "gasolio"}
-
-GIORNI_MASSIMI = 30          # un prezzo più vecchio di così è di un impianto fermo
-PREZZO_MINIMO = 0.3          # € al litro o al kg: sotto è un refuso
+UNITA_ATTESA = "1000 l"      # il foglio dà € per 1000 litri
+PREZZO_MINIMO = 0.3          # € al litro: sotto è un refuso
 PREZZO_MASSIMO = 4.0         # sopra pure
-IMPIANTI_MINIMI = 100        # sotto, il file è incompleto: meglio non scrivere niente
 
-TEMPO_MASSIMO_S = 120
+# Oltre questi giorni il file non si sta più aggiornando: forse la
+# Commissione ha cambiato il link. Il bollettino salta qualche settimana
+# a Natale, per questo il margine è di tre settimane e non di una.
+GIORNI_MASSIMI = 21
+
+TEMPO_MASSIMO_S = 60
 
 
 # --------------------------------------------------------------------------
-# LETTURA
+# LETTURA DEL FILE .xlsx
 # --------------------------------------------------------------------------
+
+# Gli spazi dei nomi XML del formato. ET li vuole scritti per intero
+# dentro ogni nome: "{spazio}nome".
+NS_FOGLIO = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+NS_REL_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+NS_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+
 
 def scarica(url):
     richiesta = urllib.request.Request(url, headers={
         # Uno User-Agent da browser generico: alcuni server rifiutano quello
         # predefinito di Python.
-        "User-Agent": "Mozilla/5.0 (compatible; prezzi-carburanti/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; prezzi-carburanti/2.0)",
     })
     with urllib.request.urlopen(richiesta, timeout=TEMPO_MASSIMO_S) as risposta:
         return risposta.read()
 
 
-def decodifica(dati):
-    # I campi che servono sono tutti ASCII: una lettera accentata mal
-    # decodificata nel nome di un impianto non cambia niente.
+def testo_di(elemento):
+    """Tutto il testo dentro un elemento, anche se spezzato in più <t>."""
+    return "".join(t.text or "" for t in elemento.iter(NS_FOGLIO + "t"))
+
+
+def leggi_foglio(dati):
+    """Il primo foglio del file come { numero di riga: { "B": valore } }.
+
+    I valori sono stringhe così come stanno nel file: un numero resta
+    "1969.6", e una data resta il suo numero di serie Excel. Ritorna anche
+    se il file conta le date dal 1904 invece che dal 1900."""
     try:
-        return dati.decode("utf-8")
-    except UnicodeDecodeError:
-        return dati.decode("latin-1")
+        archivio = zipfile.ZipFile(io.BytesIO(dati))
+    except zipfile.BadZipFile:
+        raise ValueError("il file scaricato non è un .xlsx: forse il link è cambiato")
+
+    # Quale file XML è il primo foglio: lo dice workbook.xml, con un
+    # identificativo che il file delle relazioni traduce in un percorso.
+    cartella = ET.fromstring(archivio.read("xl/workbook.xml"))
+    proprieta = cartella.find(NS_FOGLIO + "workbookPr")
+    dal_1904 = proprieta is not None and proprieta.get("date1904") in ("1", "true")
+
+    primo = cartella.find(NS_FOGLIO + "sheets/" + NS_FOGLIO + "sheet")
+    id_foglio = primo.get(NS_REL_ID + "id")
+    relazioni = ET.fromstring(archivio.read("xl/_rels/workbook.xml.rels"))
+    destinazione = next(r.get("Target") for r in relazioni.iter(NS_REL + "Relationship")
+                        if r.get("Id") == id_foglio)
+    # Il percorso è relativo a xl/, oppure assoluto dentro lo zip
+    if destinazione.startswith("/"):
+        percorso = destinazione.lstrip("/")
+    else:
+        percorso = str(PurePosixPath("xl") / destinazione)
+
+    # Le stringhe non stanno nelle celle ma in una tabella comune, e la
+    # cella ne contiene il numero d'ordine.
+    stringhe = []
+    if "xl/sharedStrings.xml" in archivio.namelist():
+        tabella = ET.fromstring(archivio.read("xl/sharedStrings.xml"))
+        stringhe = [testo_di(si) for si in tabella.iter(NS_FOGLIO + "si")]
+
+    righe = {}
+    foglio = ET.fromstring(archivio.read(percorso))
+    for cella in foglio.iter(NS_FOGLIO + "c"):
+        # "B17" → colonna "B", riga 17
+        posto = re.fullmatch(r"([A-Z]+)(\d+)", cella.get("r", ""))
+        if not posto:
+            continue
+        tipo = cella.get("t")
+        valore = cella.find(NS_FOGLIO + "v")
+        if tipo == "s" and valore is not None:
+            testo = stringhe[int(valore.text)]
+        elif tipo == "inlineStr":
+            testo = testo_di(cella)
+        elif valore is not None:
+            testo = valore.text or ""
+        else:
+            continue
+        righe.setdefault(int(posto.group(2)), {})[posto.group(1)] = testo
+
+    return righe, dal_1904
 
 
-def data_estrazione(prima_riga):
-    """La prima riga del file è "Estrazione del 2026-11-17"."""
-    trovata = re.search(r"(\d{4})-(\d{2})-(\d{2})", prima_riga)
-    if not trovata:
-        raise ValueError("prima riga inattesa: " + prima_riga.strip()[:80])
-    return date(int(trovata.group(1)), int(trovata.group(2)), int(trovata.group(3)))
+def normalizza(testo):
+    """Minuscolo e con gli spazi ridotti a uno: le intestazioni del foglio
+    vanno a capo e hanno spazi doppi."""
+    return " ".join(testo.lower().split())
 
 
-def separatore(intestazione):
-    """Dal 10 febbraio 2026 i campi sono separati da "|"; prima da ";".
-    Si riconoscono tutti e due, così lo script funziona anche su un file
-    dell'archivio storico."""
-    if "|" in intestazione:
-        return "|"
-    if ";" in intestazione:
-        return ";"
-    raise ValueError("separatore non riconosciuto: " + intestazione.strip()[:80])
-
-
-def data_comunicazione(testo):
-    """dtComu è "gg/mm/aaaa hh:mm:ss"."""
+def data_da_excel(valore, dal_1904):
+    """Una data Excel è un numero di giorni da un'origine fissa. L'origine
+    "30 dicembre 1899" e non 1° gennaio 1900 è voluta: compensa un vecchio
+    errore di Excel, che conta un 29 febbraio 1900 mai esistito."""
     try:
-        return datetime.strptime(testo.strip()[:10], "%d/%m/%Y").date()
+        giorni = float(valore)
     except ValueError:
-        return None
+        raise ValueError("la data dei prezzi non è una data: " + valore[:40])
+    origine = date(1904, 1, 1) if dal_1904 else date(1899, 12, 30)
+    return origine + timedelta(days=int(giorni))
 
 
 # --------------------------------------------------------------------------
 # CALCOLO
 # --------------------------------------------------------------------------
 
-def mediane(testo):
-    righe = testo.splitlines()
-    if len(righe) < 3:
-        raise ValueError("file troppo corto")
+def prezzi_italia(dati, oggi):
+    righe, dal_1904 = leggi_foglio(dati)
 
-    estrazione = data_estrazione(righe[0])
-    sep = separatore(righe[1])
-    lettore = csv.reader(io.StringIO("\n".join(righe[1:])), delimiter=sep)
+    # La riga delle intestazioni è quella che nomina la benzina.
+    # Quella subito sotto ha le unità, e nella colonna A la data dei prezzi.
+    riga_titoli = next((n for n in sorted(righe)
+                        if any(COLONNE["benzina"] in normalizza(v) for v in righe[n].values())),
+                       None)
+    if riga_titoli is None:
+        raise ValueError("intestazioni non trovate: il formato del file è cambiato?")
+    titoli = righe[riga_titoli]
+    unita = righe.get(riga_titoli + 1, {})
 
-    # Le colonne si cercano per nome, non per posizione
-    intestazione = [nome.strip().lower() for nome in next(lettore)]
-    try:
-        i_id = intestazione.index("idimpianto")
-        i_carb = intestazione.index("desccarburante")
-        i_prezzo = intestazione.index("prezzo")
-        i_self = intestazione.index("isself")
-        i_data = intestazione.index("dtcomu")
-    except ValueError as e:
-        raise ValueError("colonna mancante nel CSV: " + str(e))
+    colonne = {}
+    for chiave, pezzo in COLONNE.items():
+        trovate = [col for col, testo in titoli.items() if pezzo in normalizza(testo)]
+        if len(trovate) != 1:
+            raise ValueError(f"{chiave}: {len(trovate)} colonne con \"{pezzo}\" invece di una")
+        colonna = trovate[0]
+        if normalizza(unita.get(colonna, "")) != UNITA_ATTESA:
+            raise ValueError(f"{chiave}: unità \"{unita.get(colonna)}\" invece di \"{UNITA_ATTESA}\"")
+        colonne[chiave] = colonna
 
-    # (impianto, carburante) → prezzo più basso trovato
-    per_impianto = {}
+    aggiornato = data_da_excel(unita.get("A", ""), dal_1904)
+    vecchiaia = (oggi - aggiornato).days
+    if vecchiaia > GIORNI_MASSIMI:
+        raise ValueError(f"prezzi del {aggiornato.isoformat()}, vecchi di {vecchiaia} giorni: "
+                         "il file non si aggiorna più, forse il link è cambiato")
+    if vecchiaia < 0:
+        raise ValueError(f"prezzi datati nel futuro: {aggiornato.isoformat()}")
 
-    for campi in lettore:
-        if len(campi) <= max(i_id, i_carb, i_prezzo, i_self, i_data):
-            continue
-
-        chiave = CARBURANTI.get(campi[i_carb].strip().lower())
-        if not chiave:
-            continue
-        if chiave in SOLO_SELF and campi[i_self].strip() != "1":
-            continue
-
-        comunicato = data_comunicazione(campi[i_data])
-        if comunicato is None or (estrazione - comunicato).days > GIORNI_MASSIMI:
-            continue
-
-        try:
-            prezzo = float(campi[i_prezzo].strip().replace(",", "."))
-        except ValueError:
-            continue
-        if not PREZZO_MINIMO <= prezzo <= PREZZO_MASSIMO:
-            continue
-
-        posto = (campi[i_id].strip(), chiave)
-        if posto not in per_impianto or prezzo < per_impianto[posto]:
-            per_impianto[posto] = prezzo
+    riga_paese = next((celle for n, celle in sorted(righe.items())
+                       if normalizza(celle.get("A", "")) == PAESE.lower()), None)
+    if riga_paese is None:
+        raise ValueError(f"riga \"{PAESE}\" non trovata")
 
     prezzi = {}
-    impianti = {}
-    for chiave in CARBURANTI.values():
-        valori = [p for (_, k), p in per_impianto.items() if k == chiave]
-        if len(valori) < IMPIANTI_MINIMI:
-            raise ValueError(f"{chiave}: solo {len(valori)} impianti validi, file incompleto?")
-        prezzi[chiave] = round(statistics.median(valori), 3)
-        impianti[chiave] = len(valori)
+    for chiave, colonna in colonne.items():
+        try:
+            per_mille = float(riga_paese.get(colonna, ""))
+        except ValueError:
+            raise ValueError(f"{chiave}: nessun prezzo per {PAESE}")
+        prezzo = round(per_mille / 1000, 3)
+        if not PREZZO_MINIMO <= prezzo <= PREZZO_MASSIMO:
+            raise ValueError(f"{chiave}: {prezzo} €/L non è plausibile")
+        prezzi[chiave] = prezzo
 
     return {
-        "aggiornato": estrazione.isoformat(),
-        "fonte": "MIMIT, prezzo_alle_8.csv: mediana nazionale, self-service per benzina e gasolio",
+        "aggiornato": aggiornato.isoformat(),
+        "fonte": "Commissione europea, Weekly Oil Bulletin: media nazionale dell'Italia, tasse comprese",
         "prezzi": prezzi,
-        "impianti": impianti,
     }
 
 
@@ -199,14 +269,15 @@ def mediane(testo):
 # --------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Prezzi medi dei carburanti dal CSV del MIMIT.")
-    parser.add_argument("--csv", help="legge questo file invece di scaricarlo (per provare lo script)")
+    parser = argparse.ArgumentParser(
+        description="Prezzi dei carburanti in Italia dal Weekly Oil Bulletin della Commissione europea.")
+    parser.add_argument("--xlsx", help="legge questo file invece di scaricarlo (per provare lo script)")
     parser.add_argument("--out", default=str(USCITA_PREDEFINITA), help="dove scrivere il JSON")
     argomenti = parser.parse_args()
 
     try:
-        dati = Path(argomenti.csv).read_bytes() if argomenti.csv else scarica(URL_CSV)
-        risultato = mediane(decodifica(dati))
+        dati = Path(argomenti.xlsx).read_bytes() if argomenti.xlsx else scarica(URL_XLSX)
+        risultato = prezzi_italia(dati, date.today())
     except Exception as e:  # qualunque guasto: non si scrive niente
         print("ERRORE: " + str(e), file=sys.stderr)
         return 1

@@ -88,7 +88,7 @@ reasoning when it is not obvious.
 │       ├── layout.js              shared header, footer, language switcher, theme switch
 │       └── tools/                 per-tool logic, one file each, shared by both trees
 └── .github/
-    ├── workflows/prezzi-carburanti.yml   every Monday: MIMIT prices → carburanti.json
+    ├── workflows/prezzi-carburanti.yml   every Friday: EU Oil Bulletin → carburanti.json
     └── scripts/prezzi_carburanti.py      the script it runs; Python stdlib only
 ```
 
@@ -431,9 +431,21 @@ Written down so future changes do not drift.
   request goes through `chiedi()`, which queues calls per host.
 - **`python3 -m http.server` works for the tool**, but the map, the search and
   the route need the network; `carburanti.json` is read from the same origin.
-- **`carburanti.json` starts empty** (`"prezzi": {}`) and the page uses its own
-  rough fallback prices, labelled "valore indicativo", until the workflow has
-  run. A missing file would also work but logs a 404.
+- **Fuel prices come from the EU Weekly Oil Bulletin, not from MIMIT.** The
+  first version read MIMIT's daily per-station CSV and took a national median.
+  MIMIT's server never answers GitHub's runners (the first run timed out
+  without receiving a byte) nor this development container, so the script now
+  reads the Commission's "Prices with taxes, latest prices" xlsx and takes the
+  row for Italy: a national average, taxes included, for prices in force on
+  Monday, published on Thursday — hence the workflow runs on Friday. The
+  download URL is stable (the Commission replaces the file behind it; the
+  filename it declares is stale and irrelevant), and the script refuses data
+  older than 21 days so a dead link turns into a failed run instead of frozen
+  prices. The xlsx is read with `zipfile` + `xml.etree`: still stdlib only.
+- **The bulletin has no CNG.** `carburanti.json` holds petrol, diesel and LPG
+  only; the page uses its rough fallback for `metano`, labelled "valore
+  indicativo", exactly as it does for electricity. If the file is missing or
+  `"prezzi"` is empty, all fuels fall back the same way.
 
 ## Deployment
 
@@ -487,11 +499,11 @@ updating, re-enable it from the Actions tab.
   files (currently commented out). Decide whether there is one PDF or one per
   language
 - Add a favicon
-- Run the fuel price workflow once by hand (Actions → Prezzi carburanti → Run
-  workflow) and check it commits real prices. From the development container the
-  MIMIT server reset the connection during the TLS handshake, which suggests it
-  may refuse some cloud IP ranges; GitHub's runners might be among them. If so,
-  a fallback source is the EU Weekly Oil Bulletin (petrol, diesel, LPG; no CNG)
+- After merging the switch to the EU Weekly Oil Bulletin, run the fuel price
+  workflow once by hand (Actions → Prezzi carburanti → Run workflow) and check
+  it goes green: the Commission's server answered from the development
+  container, but not yet from a GitHub runner. "Nessuna variazione" is a
+  success: the branch already carries the prices of 16 November 2026
 - Choose and attach the custom domain. When it exists, make the `hreflang` and
   `canonical` URLs absolute (`https://dominio/it/cv/`): Google ignores relative
   `hreflang`. Nothing else needs to change — that is why paths are absolute

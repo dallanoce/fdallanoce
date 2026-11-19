@@ -62,8 +62,9 @@ const ATTESA_MIN_MS = 1100;
 const TEMPO_MASSIMO_MS = 15000;
 
 /* Il file dei prezzi ufficiali, scritto ogni settimana da una GitHub
-   Action (vedi .github/workflows/prezzi-carburanti.yml). Sta sullo stesso
-   dominio del sito: leggerlo non manda niente a nessuno. */
+   Action (vedi .github/workflows/prezzi-carburanti.yml) con i dati del
+   Weekly Oil Bulletin della Commissione europea. Sta sullo stesso dominio
+   del sito: leggerlo non manda niente a nessuno. */
 const PREZZI_UFFICIALI_URL = "/assets/data/carburanti.json";
 
 const CHIAVE_VIAGGIO = "viaggio";   /* dove si salva la configurazione */
@@ -75,8 +76,9 @@ const ZOOM_MAPPA = 5;
 /* --- Carburanti ----------------------------------------------------------
    Quello che si compra, con l'unità in cui si paga. Il prezzo di riserva
    si usa solo se manca il file dei prezzi ufficiali: è un ordine di
-   grandezza, e la pagina lo chiama "valore indicativo". L'elettricità non
-   ha una fonte ufficiale settimanale, quindi usa sempre il suo. */
+   grandezza, e la pagina lo chiama "valore indicativo". Il metano nel
+   bollettino UE non c'è e l'elettricità non ha una fonte ufficiale
+   settimanale: quei due usano sempre il loro. */
 const CARBURANTI = {
   benzina:     { nome: { it: "Benzina",     en: "Petrol" },      unita: "L",   riserva: 1.70 },
   gasolio:     { nome: { it: "Gasolio",     en: "Diesel" },      unita: "L",   riserva: 1.65 },
@@ -1134,7 +1136,7 @@ function aggiornaPrezzi() {
       const data = /^\d{4}-\d{2}-\d{2}$/.test(ufficiali.aggiornato || "")
         ? " · " + dataMedia.format(new Date(ufficiali.aggiornato + "T12:00:00"))
         : "";
-      testo = "MIMIT" + data;
+      testo = I18N.t({ it: "Bollettino UE", en: "EU Oil Bulletin" }) + data;
     } else {
       testo = I18N.t({ it: "valore indicativo", en: "rough estimate" });
     }

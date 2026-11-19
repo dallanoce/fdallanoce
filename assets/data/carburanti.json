@@ -1,5 +1,9 @@
 {
-  "aggiornato": null,
-  "fonte": "MIMIT: ancora nessun aggiornamento, lo scrive il workflow prezzi-carburanti",
-  "prezzi": {}
+  "aggiornato": "2026-11-16",
+  "fonte": "Commissione europea, Weekly Oil Bulletin: media nazionale dell'Italia, tasse comprese",
+  "prezzi": {
+    "benzina": 1.97,
+    "gasolio": 2.21,
+    "gpl": 0.836
+  }
 }
